@@ -106,59 +106,6 @@ def k_fold_train_and_test(G, k = 10, method = "cn", num_trials = 1000, parameter
 
 	return AUC_total / k
 
-#TODO: Combine lhn1 and jaccard (and as yet unimplemented indices) as there is a ton of code reuse here
-def lhn1_AUC(G, cn_mat, train_edges, test_edges, nodelist, num_trials):
-	orig_G = G.copy()
-
-	non_edges = n_random_non_edges(orig_G, num_trials)
-
-	total = 0
-
-	for non_edge in non_edges:
-		missing_edge = random.sample(test_edges, 1)[0]
-
-		u = nodelist.index(non_edge[0])
-		v = nodelist.index(non_edge[1])
-		non_edge_score = cn_mat[u, v] / len(orig_G[non_edge[0]]) * len((orig_G[non_edge[1]]))
-
-		u = nodelist.index(missing_edge[0])
-		v = nodelist.index(missing_edge[1])
-		missing_edge_score = cn_mat[u, v] / len(orig_G[missing_edge[0]]) * len((orig_G[missing_edge[1]]))
-
-		if missing_edge_score > non_edge_score:
-			total += 1
-		elif missing_edge_score == non_edge_score:
-			total += 0.5
-		test_edges.remove(missing_edge)
-
-	return total / float(num_trials)
-
-def jaccard_AUC(G, cn_mat, train_edges, test_edges, nodelist, num_trials):
-	orig_G = G.copy()
-
-	non_edges = n_random_non_edges(orig_G, num_trials)
-
-	total = 0
-
-	for non_edge in non_edges:
-		missing_edge = random.sample(test_edges, 1)[0]
-
-		u = nodelist.index(non_edge[0])
-		v = nodelist.index(non_edge[1])
-		non_edge_score = cn_mat[u, v] / len(set(orig_G[non_edge[0]]) | set(orig_G[non_edge[1]]))
-
-		u = nodelist.index(missing_edge[0])
-		v = nodelist.index(missing_edge[1])
-		missing_edge_score = cn_mat[u, v] / len(set(orig_G[missing_edge[0]]) | set(orig_G[missing_edge[1]]))
-
-		if missing_edge_score > non_edge_score:
-			total += 1
-		elif missing_edge_score == non_edge_score:
-			total += 0.5
-		test_edges.remove(missing_edge)
-
-	return total / float(num_trials)
-
 if __name__ == "__main__":
 	G = load_graph("condmat")
 
