@@ -27,11 +27,48 @@ def mat_AUC_score(score_mat, test_edges, non_edges, nodelist):
 
 	return total / float(len(non_edges))
 
+#These indices require more processing than just looking up matrix elements
+def extra_mat_AUC_score(G, cn_mat, train_edges, test_edges, nodelist, num_trials, index):
+	orig_G = G.copy()
+
+	non_edges = n_random_non_edges(orig_G, num_trials)
+
+	total = 0
+
+	for non_edge in non_edges:
+		missing_edge = random.sample(test_edges, 1)[0]
+
+		u_non = nodelist.index(non_edge[0])
+		v_non = nodelist.index(non_edge[1])
+
+		u_miss = nodelist.index(missing_edge[0])
+		v_miss = nodelist.index(missing_edge[1])
+
+		if index == "jaccard":
+			non_edge_score = cn_mat[u_non, v_non] / len(set(orig_G[non_edge[0]]) | set(orig_G[non_edge[1]]))
+			missing_edge_score = cn_mat[u_miss, v_miss] / len(set(orig_G[missing_edge[0]]) | set(orig_G[missing_edge[1]]))
+
+		elif index == "lhn1":
+			non_edge_score = cn_mat[u_non, v_non] / len(orig_G[non_edge[0]]) * len((orig_G[non_edge[1]]))
+			missing_edge_score = cn_mat[u_miss, v_miss] / len(orig_G[missing_edge[0]]) * len((orig_G[missing_edge[1]]))
+
+		else:
+			raise ParameterError("{} is not a valid index for funciton_name".format(index))
+
+		if missing_edge_score > non_edge_score:
+			total += 1
+		elif missing_edge_score == non_edge_score:
+			total += 0.5
+		test_edges.remove(missing_edge)
+
+	return total / float(num_trials)
+
 def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = None):
 	if len(test_edges) < num_trials:
 		raise ParameterError("Number of test edges ({}) must at least equal the number of trials ({}) for predict_edges()".format(len(test_edges), num_trials))
 
 	mat_score_methods = ["cn", "lp"]
+	extra_mat_score_methods = ["jaccard", "lhn1"]
 	nodelist = [n for n in train_graph.nodes()]
 	mat = nx.adjacency_matrix(train_graph, nodelist = nodelist)
 	cn_mat = mat * mat
@@ -47,10 +84,8 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 
 		return mat_AUC_score(score_mat, test_edges, n_random_non_edges(G, num_trials), nodelist)
 
-	elif method == "jaccard":
-		return jaccard_AUC(G, cn_mat, train_graph, test_edges, nodelist, num_trials)
-	elif method == "lhn1":
-		return lhn1_AUC(G, cn_mat, train_graph, test_edges, nodelist, num_trials)
+	elif method in extra_mat_score_methods:
+		return extra_mat_AUC_score(G, cn_mat, train_graph, test_edges, nodelist, num_trials, method)
 	else:
 		raise KeyError("Invalid method {} passed to predict_edges()".format(method))
 
@@ -127,10 +162,9 @@ def jaccard_AUC(G, cn_mat, train_edges, test_edges, nodelist, num_trials):
 if __name__ == "__main__":
 	G = load_graph("condmat")
 
-	for i in [0.1, 0.2, 0.3, 0.4]:
-		jaccard(G.copy(), i)
-
-	for test_edge_fraction in [0.1, 0.4]:
-		cn_train_and_AUC(G.copy(), test_edge_fraction)
-		for e in [0.15 * n for n in range(1, 3)]:
-			lp_train_and_AUC(G.copy(), test_edge_fraction, e)
+	total = 0
+	for i in range(10):
+		score = k_fold_train_and_test(G.copy(), method = "lp", num_trials = 1000, parameter = 0.04)
+		print("Average AUC: {:.5f}".format(score))
+		total += score
+	print(total / 10)
