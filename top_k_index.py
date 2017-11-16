@@ -2,6 +2,7 @@ import networkx as nx
 import helper_functions
 import math
 import time
+import random
 from collections import deque
 
 def query(index, s, t, k):
@@ -87,14 +88,56 @@ def construct_index(G, k):
 
 	return (dl, ll)
 
-#Compute vertex labelling for graph - for now just returns nodes in order
+#Compresses vertices labels into the range 0...n
+#where n is the number of vertices
+#This name is awful, change it
+def in_order_vertex(G):
+	vertex_id_map = dict()
+	count = 0
+	for node in G.nodes():
+		vertex_id_map[node] = count
+		count += 1
+
+	ordered_G = nx.Graph()
+	for original_node, new_id in vertex_id_map.items():
+		ordered_G.add_node(new_id)
+		for neighbor in nx.neighbors(G, original_node):
+			ordered_G.add_edge(new_id, vertex_id_map[neighbor])
+	return ordered_G, vertex_id_map
+
 def vertex_ordering(G):
 	count = 0
 	vo = dict()
-	for node in G.nodes():
-		vo[node] = count
-		count += 1
+	deg_list = [G.degree(node) for node in G.nodes()]
+	deg_count_map = dict()
+	for d in deg_list:
+		if d in deg_count_map:
+			deg_count_map[d] += 1
+		else:
+			deg_count_map[d] = 1
+
+	while deg_count_map:
+		largest_deg = max(deg_count_map.keys())
+		
+		next_index = -1
+		while deg_count_map[largest_deg] > 0:
+			next_index = deg_list.index(largest_deg, next_index + 1)
+			vo[G.nodes()[next_index]] = count
+			deg_count_map[largest_deg] -= 1
+			count += 1
+		del deg_count_map[largest_deg]
+
 	return vo
+
+def optimize_vertex_order(G):
+	vertex_id_map = vertex_ordering(G)
+
+	ordered_G = nx.Graph()
+	for original_node, new_id in vertex_id_map.items():
+		ordered_G.add_node(new_id)
+		for neighbor in nx.neighbors(G, original_node):
+			ordered_G.add_edge(new_id, vertex_id_map[neighbor])
+	return ordered_G, vertex_id_map
 
 def write_index_to_file(filename, index):
 	distance_labels, loop_labels = index
@@ -147,54 +190,31 @@ def read_index_from_file(filename):
 	return distance_labels, loop_labels
 
 if __name__ == "__main__":
-	G = nx.Graph()
-	G.add_edge(0, 1)
-	G.add_edge(0, 2)
-	G.add_edge(1, 2)
-	G.add_edge(1, 3)
-	G.add_edge(1, 4)
-	G.add_edge(2, 4)
-	G.add_edge(4, 5)
-
 	G = helper_functions.load_graph("netscience")
-	vertex_id_map = vertex_ordering(G)
+	orig_G = G.copy()
 
-	ordered_G = nx.Graph()
-	for original_node, new_id in vertex_id_map.items():
-		ordered_G.add_node(new_id)
-		for neighbor in nx.neighbors(G, original_node):
-			ordered_G.add_edge(new_id, vertex_id_map[neighbor])
-	print(len(ordered_G.nodes()))
+	indices = []
+	ordered_G, vertex_map = optimize_vertex_order(G)
 
-	#ordered_G = nx.path_graph(6)
-	
-	k = 6
-	index = construct_index(ordered_G, k)
+	for k in [2, 4, 8]:
+		print("Constructing top-{} index".format(k))
+		start = time.clock()
+		index = construct_index(ordered_G, k)
+		print("Took {} seconds".format(time.clock() - start))
+		print(query(index, 32, 33, k))
+		indices.append(index)
+	#write_index_to_file("test.idx", index)
+	num_tests = 20
+	for test in range(num_tests):
+		u = random.randint(0, 33)
+		v = random.randint(0, 33)
+		qs = [query(indices[0], u, v, 2), query(indices[1], u, v, 4), query(indices[2], u, v, 8)]
 
-	write_index_to_file("test.idx", index)
-	index = read_index_from_file("test.idx")
-
-	print(query(index, 32, 33, k))
-
-	# for i in range(len(G.nodes())):
-	# 	for j in range(i + 1, len(G.nodes())):
-	# 		print("Top 4 lengths between {} {}:".format(i, j))
-	# 		print(query(index, i, j, 4))
-	# 		print("-----------------")
-
-
-
-#G = helper_functions.load_graph("netscience")
-# G = nx.path_graph(5)
-# print(G.edges())
-# vertex_id_map = vertex_ordering(G)
-
-# ordered_G = nx.Graph()
-# for original_node, new_id in vertex_id_map.items():
-# 	ordered_G.add_node(new_id)
-# 	for neighbor in nx.neighbors(G, original_node):
-# 		ordered_G.add_edge(new_id, vertex_id_map[neighbor])
-
-# start = time.clock()
-# get_loop_labels(ordered_G, 4)
-# print(time.clock() - start)
+		if qs[0] == qs[1][:2]:
+			if qs[1] == qs[2][:4]:
+				print(qs[2])
+				pass
+			else:
+				print("top 4 != top 8")
+		else:
+			print("top 2 != top 4")
