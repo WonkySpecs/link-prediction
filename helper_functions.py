@@ -9,15 +9,46 @@ class ParameterError(Exception):
 
 def load_graph(graph_name):
 	datapath = os.path.join(os.pardir, "data")
-	gml_graph_dict = {"netscience" : os.path.join("netscience", "netscience.gml")}
+	gml_graph_dict = {  "netscience" : os.path.join("netscience", "netscience.gml"),
+						"karate" : "karate.gml"}
 	edgelist_graph_dict = { "condmat" 	: "CA-CondMat.txt",
-							"google"	: "web-Google.txt"}
+							"google"	: "web-Google.txt",
+							"facebook1"	: "facebook_combined.txt"}
 
 	if graph_name in gml_graph_dict:
-		return nx.read_gml(os.path.join(datapath, gml_graph_dict[graph_name]))
+		return nx.read_gml(os.path.join(datapath, gml_graph_dict[graph_name]), label = 'id')
+
+		#We use ids to override labels, might want to overwrite this behaviour at some point?
+		# 	G = nx.read_gml(os.path.join(datapath, gml_graph_dict[graph_name]))
+
+		return G
 
 	elif graph_name in edgelist_graph_dict:
 		return nx.read_edgelist(os.path.join(datapath, edgelist_graph_dict[graph_name]))
+
+	elif graph_name == "test":
+		#This is graph 'c' pictured in paper
+		G = nx.path_graph(5)
+		G.add_edge(0, 5)
+		G.add_edge(5, 6)
+		G.add_edge(6, 7)
+		G.add_edge(7, 4)
+
+		G.add_edge(0, 8)
+		G.add_edge(8, 9)
+		G.add_edge(9, 10)
+		G.add_edge(10, 4)
+
+		G.add_edge(5, 2)
+		G.add_edge(6, 1)
+		G.add_edge(6, 3)
+		G.add_edge(7, 2)
+
+		G.add_edge(8, 2)
+		G.add_edge(9, 3)
+		G.add_edge(9, 1)
+		G.add_edge(10, 2)
+		return G
 
 	else:
 		raise KeyError("Invalid graph_name \"{}\" passed to load_graph()".format(graph_name))
