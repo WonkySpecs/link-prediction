@@ -13,7 +13,8 @@ def load_graph(graph_name):
 						"karate" : "karate.gml"}
 	edgelist_graph_dict = { "condmat" 	: "CA-CondMat.txt",
 							"google"	: "web-Google.txt",
-							"facebook1"	: "facebook_combined.txt"}
+							"facebook1"	: "facebook_combined.txt",
+							"lastfm"	: os.path.join("lastfm", "user_friends.dat")}
 
 	if graph_name in gml_graph_dict:
 		return nx.read_gml(os.path.join(datapath, gml_graph_dict[graph_name]), label = 'id')
