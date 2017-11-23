@@ -14,19 +14,24 @@ def query(index, s, t, k):
 
 	for (v, d) in distance_labels[s]:
 		if v == t:
-			for i in range(k):
-				path_lengths.append(d + loop_labels[s][i])
-			#Have to skip first iteration as this is identical path to first iteration of previous loop ()the direct path between s and t)
-			for i in range(1, k):
-				path_lengths.append(d + loop_labels[t][i])
+			for (loop_d, n) in loop_labels[s]:
+				for i in range(n):
+					path_lengths.append(d + loop_d)
+			for (loop_d, n) in loop_labels[t]:
+				#Skip the 0 loop on t, as this is the same path as using the 0 loop for s (direct path)
+				if loop_d == 0:
+					n -= 1
+				for i in range(n):
+					path_lengths.append(d + loop_d)
 
 		else:
 			for (v2, d2) in distance_labels[t]:
 				if v2 == v:
 					base_path_length = d + d2
 
-					for i in range(k):
-						path_lengths.append(base_path_length + loop_labels[v][i])
+					for(loop_d, n) in loop_labels[v]:
+						path_lengths.append(base_path_length + loop_d)
+
 	path_lengths.sort()
 	if len(path_lengths) < k:
 		path_lengths = path_lengths + [math.inf for i in range(k - len(path_lengths))]
@@ -34,6 +39,7 @@ def query(index, s, t, k):
 
 def v_loop_label(G, v, k):
 	d_list = []
+	d_counts = dict()
 	queue = deque([(v, 0)])
 	v_visits = 0
 
@@ -41,23 +47,37 @@ def v_loop_label(G, v, k):
 		try:
 			cur_node, d = queue.popleft()	
 		except IndexError:
-			for i in range(k - v_visits):
-				d_list.append(math.inf)
 			break
 
 		if cur_node == v:
 			v_visits += 1
-			d_list.append(d)
+			try:
+				d_counts[d] += 1
+			except KeyError:
+				d_counts[d] = 1
+
 		for n in nx.neighbors(G, cur_node):
 			if n >= v:
 				queue.append((n, d + 1))
+	total_loops = 0
+	while total_loops < k and d_counts:
+		min_d = min(d_counts.keys())
+		total_loops += d_counts[min_d]
 
+		if total_loops <= k:
+			d_list.append((min_d, d_counts[min_d]))
+		else:
+			d_list.append((min_d, d_counts[min_d] - (total_loops - k)))
+		del d_counts[min_d]
+
+	if total_loops < k:
+		d_list.append((math.inf, k - total_loops))
 	return d_list
 
 def get_loop_labels(G, k):
 	loop_labels = []
-	for node in G.nodes():
-		loop_labels.append(v_loop_label(G, node, k))
+	for n in range(len(G.nodes())):
+		loop_labels.append(v_loop_label(G, n, k))
 
 	return loop_labels
 
@@ -75,9 +95,8 @@ def v_distance_label(G, v, k, index):
 
 def get_distance_labels(G, k, loop_labels):
 	distance_labels = [[] for i in range(len(G.nodes()))]
-	for node in G.nodes():
-		#print(distance_labels)
-		distance_labels = v_distance_label(G, node, k, (distance_labels, loop_labels))
+	for n in range(len(G.nodes())):
+		distance_labels = v_distance_label(G, n, k, (distance_labels, loop_labels))
 
 	return distance_labels
 
@@ -184,11 +203,15 @@ def read_index_from_file(filename):
 
 			elif section == "loop_labels":
 				loop_label = []
-				for d in line.split(","):
-					if d == "inf":
-						loop_label.append(math.inf)
+				pairs = line.replace(")", "").split("(")[1:]
+
+				for pair in pairs:
+					pair = pair.split(",")
+					if pair[0] == "inf":
+						loop_label.append((float(pair[0]), int(pair[1])))
 					else:
-						loop_label.append(int(d))
+						loop_label.append((int(pair[0]), int(pair[1])))
+
 				loop_labels.append(loop_label)
 
 			else:
@@ -201,41 +224,31 @@ def read_index_from_file(filename):
 	return distance_labels, loop_labels, vertex_map
 
 if __name__ == "__main__":
-	G = helper_functions.load_graph("test")
+
+	G = helper_functions.load_graph("netscience")
+	orig_G = G.copy()
+
+	indices = []
 	ordered_G, vertex_map = optimize_vertex_order(G)
-	index = construct_index(ordered_G, 16)
-	write_index_to_file("test.idx", index, vertex_map)
-	d, l, vm = read_index_from_file("test.idx")
-	print(d)
-	print("\n-------------\n")
-	print(l)
-	print("\n-------------\n")
-	print(vm)
-	print(query(index, vertex_map[0], vertex_map[1], 16))
-	# G = helper_functions.load_graph("netscience")
-	# orig_G = G.copy()
 
-	# indices = []
-	# ordered_G, vertex_map = optimize_vertex_order(G)
+	for k in [2, 4, 8]:
+		print("Constructing top-{} index".format(k))
+		start = time.clock()
+		index = construct_index(ordered_G, k)
+		print("Took {} seconds".format(time.clock() - start))
+		indices.append(index)
+		write_index_to_file("test{}.idx".format(k), index, vertex_map)
+	num_tests = 20
+	for test in range(num_tests):
+		u = random.randint(0, 33)
+		v = random.randint(0, 33)
+		qs = [query(indices[0], u, v, 2), query(indices[1], u, v, 4), query(indices[2], u, v, 8)]
 
-	# for k in [2, 4, 8]:
-	# 	print("Constructing top-{} index".format(k))
-	# 	start = time.clock()
-	# 	index = construct_index(ordered_G, k)
-	# 	print("Took {} seconds".format(time.clock() - start))
-	# 	indices.append(index)
-	# 	write_index_to_file("test{}.idx".format(k), index)
-	# num_tests = 20
-	# for test in range(num_tests):
-	# 	u = random.randint(0, 33)
-	# 	v = random.randint(0, 33)
-	# 	qs = [query(indices[0], u, v, 2), query(indices[1], u, v, 4), query(indices[2], u, v, 8)]
-
-	# 	if qs[0] == qs[1][:2]:
-	# 		if qs[1] == qs[2][:4]:
-	# 			#print(qs[2])
-	# 			pass
-	# 		else:
-	# 			print("top 4 != top 8")
-	# 	else:
-	# 		print("top 2 != top 4")
+		if qs[0] == qs[1][:2]:
+			if qs[1] == qs[2][:4]:
+				#print(qs[2])
+				pass
+			else:
+				print("top 4 != top 8")
+		else:
+			print("top 2 != top 4")
