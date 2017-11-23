@@ -32,7 +32,6 @@ def query(index, s, t, k):
 		path_lengths = path_lengths + [math.inf for i in range(k - len(path_lengths))]
 	return path_lengths[:k]
 
-
 def v_loop_label(G, v, k):
 	d_list = []
 	queue = deque([(v, 0)])
@@ -83,8 +82,12 @@ def get_distance_labels(G, k, loop_labels):
 	return distance_labels
 
 def construct_index(G, k):
+	start = time.clock()
 	ll = get_loop_labels(G, k)
+	print("Loop labels done in {} seconds".format(time.clock() - start))
+	start = time.clock()
 	dl = get_distance_labels(G, k, ll)
+	print("Distance labels done in {} seconds".format(time.clock() - start))
 
 	return (dl, ll)
 
@@ -115,16 +118,16 @@ def vertex_ordering(G):
 			deg_count_map[d] += 1
 		else:
 			deg_count_map[d] = 1
-
 	while deg_count_map:
 		largest_deg = max(deg_count_map.keys())
-		
+
 		next_index = -1
 		while deg_count_map[largest_deg] > 0:
 			next_index = deg_list.index(largest_deg, next_index + 1)
 			vo[G.nodes()[next_index]] = count
 			deg_count_map[largest_deg] -= 1
 			count += 1
+
 		del deg_count_map[largest_deg]
 
 	return vo
@@ -139,9 +142,13 @@ def optimize_vertex_order(G):
 			ordered_G.add_edge(new_id, vertex_id_map[neighbor])
 	return ordered_G, vertex_id_map
 
-def write_index_to_file(filename, index):
+def write_index_to_file(filename, index, vertex_map):
 	distance_labels, loop_labels = index
 	with open(filename, "w") as file:
+		file.write("vertex_map\n")
+		for key, item in vertex_map.items():
+			file.write("{}:{}\n".format(key, item))
+
 		file.write("loop_labels\n")
 		for loop_label in loop_labels:
 			s = ""
@@ -158,20 +165,24 @@ def write_index_to_file(filename, index):
 			file.write(s)
 
 def read_index_from_file(filename):
-	loop_labels_done = False
+	section = "vertex_map"
+	vertex_map = dict()
 	loop_labels = []
 	distance_labels = []
 	with open(filename, "r") as file:
 		for line in file:
 			if line.endswith("\n"):
 				line = line[:-1]
-			if line == "loop_labels":
-				continue
-			if line == "distance_labels":
-				loop_labels_done = True
+
+			if line == "vertex_map" or line == "loop_labels" or line == "distance_labels":
+				section = line
 				continue
 
-			if not loop_labels_done:
+			if section == "vertex_map":
+				parts = line.split(":")
+				vertex_map[int(parts[0])] = int(parts[1])
+
+			elif section == "loop_labels":
 				loop_label = []
 				for d in line.split(","):
 					if d == "inf":
@@ -187,34 +198,44 @@ def read_index_from_file(filename):
 					pair = pair.split(",")
 					distance_label.append((int(pair[0]), int(pair[1])))
 				distance_labels.append(distance_label)
-	return distance_labels, loop_labels
+	return distance_labels, loop_labels, vertex_map
 
 if __name__ == "__main__":
-	G = helper_functions.load_graph("netscience")
-	orig_G = G.copy()
-
-	indices = []
+	G = helper_functions.load_graph("test")
 	ordered_G, vertex_map = optimize_vertex_order(G)
+	index = construct_index(ordered_G, 16)
+	write_index_to_file("test.idx", index, vertex_map)
+	d, l, vm = read_index_from_file("test.idx")
+	print(d)
+	print("\n-------------\n")
+	print(l)
+	print("\n-------------\n")
+	print(vm)
+	print(query(index, vertex_map[0], vertex_map[1], 16))
+	# G = helper_functions.load_graph("netscience")
+	# orig_G = G.copy()
 
-	for k in [2, 4, 8]:
-		print("Constructing top-{} index".format(k))
-		start = time.clock()
-		index = construct_index(ordered_G, k)
-		print("Took {} seconds".format(time.clock() - start))
-		print(query(index, 32, 33, k))
-		indices.append(index)
-	#write_index_to_file("test.idx", index)
-	num_tests = 20
-	for test in range(num_tests):
-		u = random.randint(0, 33)
-		v = random.randint(0, 33)
-		qs = [query(indices[0], u, v, 2), query(indices[1], u, v, 4), query(indices[2], u, v, 8)]
+	# indices = []
+	# ordered_G, vertex_map = optimize_vertex_order(G)
 
-		if qs[0] == qs[1][:2]:
-			if qs[1] == qs[2][:4]:
-				print(qs[2])
-				pass
-			else:
-				print("top 4 != top 8")
-		else:
-			print("top 2 != top 4")
+	# for k in [2, 4, 8]:
+	# 	print("Constructing top-{} index".format(k))
+	# 	start = time.clock()
+	# 	index = construct_index(ordered_G, k)
+	# 	print("Took {} seconds".format(time.clock() - start))
+	# 	indices.append(index)
+	# 	write_index_to_file("test{}.idx".format(k), index)
+	# num_tests = 20
+	# for test in range(num_tests):
+	# 	u = random.randint(0, 33)
+	# 	v = random.randint(0, 33)
+	# 	qs = [query(indices[0], u, v, 2), query(indices[1], u, v, 4), query(indices[2], u, v, 8)]
+
+	# 	if qs[0] == qs[1][:2]:
+	# 		if qs[1] == qs[2][:4]:
+	# 			#print(qs[2])
+	# 			pass
+	# 		else:
+	# 			print("top 4 != top 8")
+	# 	else:
+	# 		print("top 2 != top 4")
