@@ -5,6 +5,7 @@ import time
 import random
 from collections import deque
 
+#Returns a list of k int distances for the shortest paths between nodes s and t
 def query(index, s, t, k):
 	distance_labels, loop_labels = index
 
@@ -13,6 +14,7 @@ def query(index, s, t, k):
 	path_lengths = []
 
 	for (v, d, c) in distance_labels[s]:
+		#NOTE: This almost never occurs - possibly s and t should be other way around?
 		if v == t:
 			for (loop_d, n) in loop_labels[s]:
 				for i in range(n):
@@ -23,11 +25,12 @@ def query(index, s, t, k):
 					n -= 1
 				for i in range(n):
 					path_lengths.append(d + loop_d)
-
 		else:
 			for (v2, d2, c2) in distance_labels[t]:
+				#Matching mid point vertices between s and t
 				if v2 == v:
 					base_path_length = d + d2
+					#There are c * c2 total paths from s to t which pass through v
 					for num_paths in range(c * c2):
 						for(loop_d, n) in loop_labels[v]:
 							path_lengths.append(base_path_length + loop_d)
@@ -43,12 +46,14 @@ def v_loop_label(G, v, k):
 	queue = deque([(v, 0)])
 	v_visits = 0
 
+	#BFS to find k shortest cycles from v to v
 	while v_visits < k:
 		try:
 			cur_node, d = queue.popleft()	
 		except IndexError:
 			break
 
+		#Reached v again
 		if cur_node == v:
 			v_visits += 1
 			try:
@@ -59,7 +64,11 @@ def v_loop_label(G, v, k):
 		for n in nx.neighbors(G, cur_node):
 			if n >= v:
 				queue.append((n, d + 1))
+
+	#At this point, d_counts is a dict of path lengths:occurences
+	#Want to convert this to a list of tuples containing the k shortest paths
 	total_loops = 0
+
 	while total_loops < k and d_counts:
 		min_d = min(d_counts.keys())
 		total_loops += d_counts[min_d]
@@ -70,8 +79,11 @@ def v_loop_label(G, v, k):
 			d_list.append((min_d, d_counts[min_d] - (total_loops - k)))
 		del d_counts[min_d]
 
+	#Not enough paths, fill with inf
+	#This occurs when a node has no larger neighbours
 	if total_loops < k:
 		d_list.append((math.inf, k - total_loops))
+
 	return d_list
 
 def get_loop_labels(G, k):
@@ -93,6 +105,8 @@ def v_distance_label(G, v, k, index):
 			distance_labels[u].append((v, delta, counts[u, delta]))
 			for w in nx.neighbors(G, u):
 				if w > v:
+					#Only want 1 instance of (n,d) for any given n and d
+					#If it already exists in the queue, just increment count for this pair
 					if (w, delta + 1) in counts:
 						counts[(w, delta + 1)] += 1
 					else:
@@ -137,6 +151,8 @@ def in_order_vertex(G):
 			ordered_G.add_edge(new_id, vertex_id_map[neighbor])
 	return ordered_G, vertex_id_map
 
+#Sorts vertices in order of decreasing degree
+#Returns a dict of original:new vertice id
 def vertex_ordering(G):
 	count = 0
 	vo = dict()
@@ -161,6 +177,7 @@ def vertex_ordering(G):
 
 	return vo
 
+#Builds an isomorphic graph for G with the nodes in an order more optimized for indexing
 def optimize_vertex_order(G):
 	vertex_id_map = vertex_ordering(G)
 
@@ -250,7 +267,7 @@ if __name__ == "__main__":
 		dl, ll, vm = read_index_from_file("test{}.idx".format(k))
 		print(dl)
 		print(ll)
-		
+
 
 	# print("Testing")
 	# num_tests = 20
