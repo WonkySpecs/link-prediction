@@ -12,7 +12,7 @@ def query(index, s, t, k):
 
 	path_lengths = []
 
-	for (v, d) in distance_labels[s]:
+	for (v, d, c) in distance_labels[s]:
 		if v == t:
 			for (loop_d, n) in loop_labels[s]:
 				for i in range(n):
@@ -25,12 +25,12 @@ def query(index, s, t, k):
 					path_lengths.append(d + loop_d)
 
 		else:
-			for (v2, d2) in distance_labels[t]:
+			for (v2, d2, c2) in distance_labels[t]:
 				if v2 == v:
 					base_path_length = d + d2
-
-					for(loop_d, n) in loop_labels[v]:
-						path_lengths.append(base_path_length + loop_d)
+					for num_paths in range(c * c2):
+						for(loop_d, n) in loop_labels[v]:
+							path_lengths.append(base_path_length + loop_d)
 
 	path_lengths.sort()
 	if len(path_lengths) < k:
@@ -84,29 +84,39 @@ def get_loop_labels(G, k):
 def v_distance_label(G, v, k, index):
 	distance_labels, loop_labels = index
 	queue = deque([(v, 0)])
+	counts = {(v, 0) : 1}
+	count = 0
 	while queue:
 		u, delta = queue.popleft()
+		count += 1
 		if delta < max(query(index, v, u, k)):
-			distance_labels[u].append((v, delta))
+			distance_labels[u].append((v, delta, counts[u, delta]))
 			for w in nx.neighbors(G, u):
 				if w > v:
-					queue.append((w, delta + 1))
-	return distance_labels
+					if (w, delta + 1) in counts:
+						counts[(w, delta + 1)] += 1
+					else:
+						queue.append((w, delta + 1))
+						counts[(w, delta + 1)] = 1
+	return distance_labels, count
 
 def get_distance_labels(G, k, loop_labels):
 	distance_labels = [[] for i in range(len(G.nodes()))]
+	total = 0
 	for n in range(len(G.nodes())):
-		distance_labels = v_distance_label(G, n, k, (distance_labels, loop_labels))
+		distance_labels, count = v_distance_label(G, n, k, (distance_labels, loop_labels))
+		total += count
+	print("average number of pops was {}".format(total/len(G.nodes())))
 
 	return distance_labels
 
 def construct_index(G, k):
 	start = time.clock()
 	ll = get_loop_labels(G, k)
-	print("Loop labels done in {} seconds".format(time.clock() - start))
+	#print("Loop labels done in {} seconds".format(time.clock() - start))
 	start = time.clock()
 	dl = get_distance_labels(G, k, ll)
-	print("Distance labels done in {} seconds".format(time.clock() - start))
+	#print("Distance labels done in {} seconds".format(time.clock() - start))
 
 	return (dl, ll)
 
@@ -178,8 +188,8 @@ def write_index_to_file(filename, index, vertex_map):
 		file.write("distance_labels\n")
 		for distance_label in distance_labels:
 			s = ""
-			for (v, d) in distance_label:
-				s += "({},{}),".format(v, d)
+			for (v, d, c) in distance_label:
+				s += "({},{},{}),".format(v, d, c)
 			s = s[:-1] + "\n"
 			file.write(s)
 
@@ -219,13 +229,12 @@ def read_index_from_file(filename):
 				pairs = line.replace(")", "").split("(")[1:]
 				for pair in pairs:
 					pair = pair.split(",")
-					distance_label.append((int(pair[0]), int(pair[1])))
+					distance_label.append((int(pair[0]), int(pair[1]), int(pair[2])))
 				distance_labels.append(distance_label)
 	return distance_labels, loop_labels, vertex_map
 
 if __name__ == "__main__":
-
-	G = helper_functions.load_graph("netscience")
+	G = helper_functions.load_graph("test")
 	orig_G = G.copy()
 
 	indices = []
@@ -238,17 +247,24 @@ if __name__ == "__main__":
 		print("Took {} seconds".format(time.clock() - start))
 		indices.append(index)
 		write_index_to_file("test{}.idx".format(k), index, vertex_map)
-	num_tests = 20
-	for test in range(num_tests):
-		u = random.randint(0, 33)
-		v = random.randint(0, 33)
-		qs = [query(indices[0], u, v, 2), query(indices[1], u, v, 4), query(indices[2], u, v, 8)]
+		dl, ll, vm = read_index_from_file("test{}.idx".format(k))
+		print(dl)
+		print(ll)
+		
 
-		if qs[0] == qs[1][:2]:
-			if qs[1] == qs[2][:4]:
-				#print(qs[2])
-				pass
-			else:
-				print("top 4 != top 8")
-		else:
-			print("top 2 != top 4")
+	# print("Testing")
+	# num_tests = 20
+	# for test in range(num_tests):
+	# 	u = random.randint(0, 33)
+	# 	v = random.randint(0, 33)
+	# 	qs = [query(indices[0], u, v, 2), query(indices[1], u, v, 4), query(indices[2], u, v, 8)]
+
+	# 	if qs[0] == qs[1][:2]:
+	# 		if qs[1] == qs[2][:4]:
+	# 			#print(qs[2])
+	# 			pass
+	# 		else:
+	# 			print("top 4 != top 8")
+	# 	else:
+	# 		print("top 2 != top 4")
+	# print("done")
