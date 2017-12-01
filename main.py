@@ -30,7 +30,7 @@ def mat_AUC_score(score_mat, test_edges, non_edges, nodelist):
 #These indices require more processing than just looking up matrix elements
 def extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, num_trials, non_edges, index):
 	total = 0
-
+	
 	for non_edge in non_edges:
 		missing_edge = random.sample(test_edges, 1)[0]
 
@@ -59,6 +59,10 @@ def extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, num_trials, n
 		elif index == "hpi":
 			non_edge_score = cn_mat[u_non, v_non] / min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
 			missing_edge_score = cn_mat[u_miss, v_miss] / min(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+
+		elif index == "hdi":
+			non_edge_score = cn_mat[u_non, v_non] / max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+			missing_edge_score = cn_mat[u_miss, v_miss] / max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
 
 		else:
 			raise ParameterError("{} is not a valid index for funciton_name".format(index))
@@ -109,12 +113,47 @@ def aa_ra_AUC_score(train_graph, test_edges, num_trials, non_edges, index):
 
 	return total / float(num_trials)
 
+def experimental_AUC_score(train_graph, test_edges, nodelist, lp_mat, num_trials, non_edges, index):
+	total = 0
+	for non_edge in non_edges:
+		missing_edge = random.sample(test_edges, 1)[0]
+
+		u_non = nodelist.index(non_edge[0])
+		v_non = nodelist.index(non_edge[1])
+
+		u_miss = nodelist.index(missing_edge[0])
+		v_miss = nodelist.index(missing_edge[1])
+		
+		if index == "HPI_e":
+			non_edge_score = lp_mat[u_non, v_non] / min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+			missing_edge_score = lp_mat[u_miss, v_miss] / min(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+
+		elif index == "HDI_e":
+			non_edge_score = lp_mat[u_non, v_non] / max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+			missing_edge_score = lp_mat[u_miss, v_miss] / max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+
+		elif index == "salton_e":
+			non_edge_score = lp_mat[u_non, v_non] / math.sqrt(len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]])))
+			missing_edge_score = lp_mat[u_miss, v_miss] / math.sqrt(len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]])))
+
+		elif index == "LHN1_e":
+			non_edge_score = lp_mat[u_non, v_non] / len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]]))
+			missing_edge_score = lp_mat[u_miss, v_miss] / len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]]))
+
+		if missing_edge_score > non_edge_score:
+			total += 1
+		elif missing_edge_score == non_edge_score:
+			total += 0.5
+		test_edges.remove(missing_edge)
+
+	return total / float(num_trials)
+
 def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = None):
 	if len(test_edges) < num_trials:
 		raise ParameterError("Number of test edges ({}) must at least equal the number of trials ({}) for predict_edges()".format(len(test_edges), num_trials))
 
 	mat_score_methods = ["cn", "lp"]
-	extra_mat_score_methods = ["jaccard", "lhn1", "salton", "sorensen", "hpi"]
+	extra_mat_score_methods = ["jaccard", "lhn1", "salton", "sorensen", "hpi", "hdi"]
 	experimental_indices = ["HPI_e", "HDI_e", "salton_e", "LHN1_e"]#
 
 	non_edges = n_random_non_edges(G, num_trials)
@@ -143,6 +182,12 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 
 	elif method == "aa" or method == "ra":
 		return aa_ra_AUC_score(train_graph, test_edges, num_trials, non_edges, method)
+
+	elif method in experimental_indices:
+		nodelist = [n for n in train_graph.nodes()]
+		mat = nx.adjacency_matrix(train_graph, nodelist = nodelist)
+		cn_mat = mat * mat
+		return experimental_AUC_score(train_graph, test_edges, nodelist, cn_mat + (0.05 * (cn_mat * mat)), num_trials, non_edges, method)
 	else:
 		raise KeyError("Invalid method {} passed to predict_edges()".format(method))
 
@@ -169,7 +214,7 @@ if __name__ == "__main__":
 	repeats = 5
 	total = 0
 	for i in range(repeats):
-		score = k_fold_train_and_test(G.copy(), method = "pa", num_trials = 100, parameter = 0.04)
+		score = k_fold_train_and_test(G.copy(), method = "LHN1_e", num_trials = 100, parameter = 0.04)
 		print("Average AUC: {:.5f}".format(score))
 		total += score
 	print(total / repeats)
