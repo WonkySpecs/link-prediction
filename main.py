@@ -28,9 +28,7 @@ def mat_AUC_score(score_mat, test_edges, non_edges, nodelist):
 	return total / float(len(non_edges))
 
 #These indices require more processing than just looking up matrix elements
-def extra_mat_AUC_score(G, cn_mat, train_graph, test_edges, nodelist, num_trials, index):
-	non_edges = n_random_non_edges(G, num_trials)
-
+def extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, num_trials, non_edges, index):
 	total = 0
 
 	for non_edge in non_edges:
@@ -73,9 +71,7 @@ def extra_mat_AUC_score(G, cn_mat, train_graph, test_edges, nodelist, num_trials
 
 	return total / float(num_trials)
 
-def pa_AUC_score(G, train_graph, test_edges, num_trials):
-	non_edges = n_random_non_edges(G, num_trials)
-
+def pa_AUC_score(train_graph, test_edges, num_trials, non_edges):
 	total = 0
 
 	for non_edge in non_edges:
@@ -91,9 +87,7 @@ def pa_AUC_score(G, train_graph, test_edges, num_trials):
 
 	return total / float(num_trials)
 
-def aa_ra_AUC_score(G, train_graph, test_edges, num_trials, index):
-	non_edges = n_random_non_edges(G, num_trials)
-
+def aa_ra_AUC_score(train_graph, test_edges, num_trials, non_edges, index):
 	total = 0
 
 	for non_edge in non_edges:
@@ -121,6 +115,9 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 
 	mat_score_methods = ["cn", "lp"]
 	extra_mat_score_methods = ["jaccard", "lhn1", "salton", "sorensen", "hpi"]
+	experimental_indices = ["HPI_e", "HDI_e", "salton_e", "LHN1_e"]#
+
+	non_edges = n_random_non_edges(G, num_trials)
 	
 	if method in mat_score_methods or method in extra_mat_score_methods:
 		nodelist = [n for n in train_graph.nodes()]
@@ -136,16 +133,16 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 				else:
 					raise ParameterError("Parameter, e,  must be 0 < e <= 1 for Local Path index")
 
-			return mat_AUC_score(score_mat, test_edges, n_random_non_edges(G, num_trials), nodelist)
+			return mat_AUC_score(score_mat, test_edges, non_edges, nodelist)
 
 		elif method in extra_mat_score_methods:
-			return extra_mat_AUC_score(G, cn_mat, train_graph, test_edges, nodelist, num_trials, method)
+			return extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, num_trials, non_edges, method)
 
 	elif method == "pa":
-		return pa_AUC_score(G, train_graph, test_edges, num_trials)
+		return pa_AUC_score(train_graph, test_edges, num_trials, non_edges)
 
 	elif method == "aa" or method == "ra":
-		return aa_ra_AUC_score(G, train_graph, test_edges, num_trials, method)
+		return aa_ra_AUC_score(train_graph, test_edges, num_trials, non_edges, method)
 	else:
 		raise KeyError("Invalid method {} passed to predict_edges()".format(method))
 
@@ -167,12 +164,12 @@ def k_fold_train_and_test(G, k = 10, method = "cn", num_trials = 1000, parameter
 	return AUC_total / k
 
 if __name__ == "__main__":
-	G = load_graph("netscience")
+	G = load_graph("lastfm")
 
 	repeats = 5
 	total = 0
 	for i in range(repeats):
-		score = k_fold_train_and_test(G.copy(), method = "sorensen", num_trials = 100, parameter = 0.04)
+		score = k_fold_train_and_test(G.copy(), method = "pa", num_trials = 100, parameter = 0.04)
 		print("Average AUC: {:.5f}".format(score))
 		total += score
 	print(total / repeats)
