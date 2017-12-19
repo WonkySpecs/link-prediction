@@ -30,7 +30,7 @@ def mat_AUC_score(score_mat, test_edges, non_edges, nodelist):
 #These indices require more processing than just looking up matrix elements
 def extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, num_trials, non_edges, index):
 	total = 0
-	
+
 	for non_edge in non_edges:
 		missing_edge = random.sample(test_edges, 1)[0]
 
@@ -40,32 +40,74 @@ def extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, num_trials, n
 		u_miss = nodelist.index(missing_edge[0])
 		v_miss = nodelist.index(missing_edge[1])
 
-		if index == "jaccard":
-			non_edge_score = cn_mat[u_non, v_non] / len(set(train_graph[non_edge[0]]) | set(train_graph[non_edge[1]]))
-			missing_edge_score = cn_mat[u_miss, v_miss] / len(set(train_graph[missing_edge[0]]) | set(train_graph[missing_edge[1]]))
+		with np.errstate(all = "raise"):
+			if index == "jaccard":
+				try:
+					non_edge_score = cn_mat[u_non, v_non] / len(set(train_graph[non_edge[0]]) | set(train_graph[non_edge[1]]))
+				except FloatingPointError:
+					non_edge_score = 0
 
-		elif index == "lhn1":
-			non_edge_score = cn_mat[u_non, v_non] / len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]]))
-			missing_edge_score = cn_mat[u_miss, v_miss] / len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]]))
+				try:
+					missing_edge_score = cn_mat[u_miss, v_miss] / len(set(train_graph[missing_edge[0]]) | set(train_graph[missing_edge[1]]))
+				except FloatingPointError:
+					missing_edge_score = 0
 
-		elif index == "salton":
-			non_edge_score = cn_mat[u_non, v_non] / math.sqrt(len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]])))
-			missing_edge_score = cn_mat[u_miss, v_miss] / math.sqrt(len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]])))
+			elif index == "lhn1":
+				try:
+					non_edge_score = cn_mat[u_non, v_non] / len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]]))
+				except FloatingPointError:
+					non_edge_score = 0
 
-		elif index == "sorensen":
-			non_edge_score = 2 * cn_mat[u_non, v_non] / len(train_graph[non_edge[0]]) + len((train_graph[non_edge[1]]))
-			missing_edge_score = 2 * cn_mat[u_miss, v_miss] / len(train_graph[missing_edge[0]]) + len((train_graph[missing_edge[1]]))
+				try:
+					missing_edge_score = cn_mat[u_miss, v_miss] / len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]]))
+				except FloatingPointError:
+					missing_edge_score = 0
 
-		elif index == "hpi":
-			non_edge_score = cn_mat[u_non, v_non] / min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
-			missing_edge_score = cn_mat[u_miss, v_miss] / min(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+			elif index == "salton":
+				try:
+					non_edge_score = cn_mat[u_non, v_non] / math.sqrt(len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]])))
+				except FloatingPointError:
+					non_edge_score = 0
 
-		elif index == "hdi":
-			non_edge_score = cn_mat[u_non, v_non] / max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
-			missing_edge_score = cn_mat[u_miss, v_miss] / max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+				try:
+					missing_edge_score = cn_mat[u_miss, v_miss] / math.sqrt(len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]])))
+				except FloatingPointError:
+					missing_edge_score = 0
 
-		else:
-			raise ParameterError("{} is not a valid index for funciton_name".format(index))
+			elif index == "sorensen":
+				try:
+					non_edge_score = 2 * cn_mat[u_non, v_non] / len(train_graph[non_edge[0]]) + len((train_graph[non_edge[1]]))
+				except FloatingPointError:
+					non_edge_score = 0
+
+				try:
+					missing_edge_score = 2 * cn_mat[u_miss, v_miss] / len(train_graph[missing_edge[0]]) + len((train_graph[missing_edge[1]]))
+				except FloatingPointError:
+					missing_edge_score = 0
+
+			elif index == "hpi":
+				try:
+					non_edge_score = cn_mat[u_non, v_non] / min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+				except FloatingPointError:
+					non_edge_score = 0
+				try:
+					missing_edge_score = cn_mat[u_miss, v_miss] / min(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+				except FloatingPointError:
+					missing_edge_score = 0
+				
+			elif index == "hdi":
+				try:
+					non_edge_score = cn_mat[u_non, v_non] / max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+				except FloatingPointError:
+					non_edge_score = 0
+
+				try:
+					missing_edge_score = cn_mat[u_miss, v_miss] / max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+				except FloatingPointError:
+					missing_edge_score = 0
+
+			else:
+				raise ParameterError("{} is not a valid index for extra_mat_AUC_score()".format(index))
 
 		if missing_edge_score > non_edge_score:
 			total += 1
@@ -124,21 +166,52 @@ def experimental_AUC_score(train_graph, test_edges, nodelist, lp_mat, num_trials
 		u_miss = nodelist.index(missing_edge[0])
 		v_miss = nodelist.index(missing_edge[1])
 		
-		if index == "HPI_e":
-			non_edge_score = lp_mat[u_non, v_non] / min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
-			missing_edge_score = lp_mat[u_miss, v_miss] / min(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+		with np.errstate(all = "raise"):
+			if index == "lhn1_e":
+				try:
+					non_edge_score = lp_mat[u_non, v_non] / len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]]))
+				except FloatingPointError:
+					non_edge_score = 0
 
-		elif index == "HDI_e":
-			non_edge_score = lp_mat[u_non, v_non] / max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
-			missing_edge_score = lp_mat[u_miss, v_miss] / max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+				try:
+					missing_edge_score = lp_mat[u_miss, v_miss] / len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]]))
+				except FloatingPointError:
+					missing_edge_score = 0
 
-		elif index == "salton_e":
-			non_edge_score = lp_mat[u_non, v_non] / math.sqrt(len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]])))
-			missing_edge_score = lp_mat[u_miss, v_miss] / math.sqrt(len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]])))
+			elif index == "salton_e":
+				try:
+					non_edge_score = lp_mat[u_non, v_non] / math.sqrt(len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]])))
+				except FloatingPointError:
+					non_edge_score = 0
 
-		elif index == "LHN1_e":
-			non_edge_score = lp_mat[u_non, v_non] / len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]]))
-			missing_edge_score = lp_mat[u_miss, v_miss] / len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]]))
+				try:
+					missing_edge_score = lp_mat[u_miss, v_miss] / math.sqrt(len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]])))
+				except FloatingPointError:
+					missing_edge_score = 0
+
+			elif index == "hpi_e":
+				try:
+					non_edge_score = lp_mat[u_non, v_non] / min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+				except FloatingPointError:
+					non_edge_score = 0
+				try:
+					missing_edge_score = lp_mat[u_miss, v_miss] / min(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+				except FloatingPointError:
+					missing_edge_score = 0
+				
+			elif index == "hdi_e":
+				try:
+					non_edge_score = lp_mat[u_non, v_non] / max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+				except FloatingPointError:
+					non_edge_score = 0
+
+				try:
+					missing_edge_score = lp_mat[u_miss, v_miss] / max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
+				except FloatingPointError:
+					missing_edge_score = 0
+
+			else:
+				raise ParameterError("{} is not a valid index for extra_mat_AUC_score()".format(index))
 
 		if missing_edge_score > non_edge_score:
 			total += 1
@@ -154,7 +227,7 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 
 	mat_score_methods = ["cn", "lp"]
 	extra_mat_score_methods = ["jaccard", "lhn1", "salton", "sorensen", "hpi", "hdi"]
-	experimental_indices = ["HPI_e", "HDI_e", "salton_e", "LHN1_e"]#
+	experimental_indices = ["hpi_e", "hdi_e", "salton_e", "lhn1_e"]#
 
 	non_edges = n_random_non_edges(G, num_trials)
 	
@@ -187,17 +260,17 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 		nodelist = [n for n in train_graph.nodes()]
 		mat = nx.adjacency_matrix(train_graph, nodelist = nodelist)
 		cn_mat = mat * mat
-		return experimental_AUC_score(train_graph, test_edges, nodelist, cn_mat + (0.05 * (cn_mat * mat)), num_trials, non_edges, method)
+		return experimental_AUC_score(train_graph, test_edges, nodelist, cn_mat + (0.03 * (cn_mat * mat)), num_trials, non_edges, method)
 	else:
 		raise KeyError("Invalid method {} passed to predict_edges()".format(method))
 
 def k_fold_train_and_test(G, k = 10, method = "cn", num_trials = 1000, parameter = None):
-	print("{}-fold cross validation of {} on graph with {} edges/{} nodes".format(k, method, nx.number_of_edges(G), nx.number_of_nodes(G)))
-	print("Splitting edges into test sets")
+	#print("{}-fold cross validation of {} on graph with {} edges/{} nodes".format(k, method, nx.number_of_edges(G), nx.number_of_nodes(G)))
+	#print("Splitting edges into test sets")
 	subsets = k_set_edge_split(G, k)
 
 	AUC_total = 0
-	print("Training")
+	#print("Training")
 	for test_edges in subsets:
 		training_graph = G.copy()
 		training_graph.remove_edges_from(test_edges)
@@ -210,11 +283,16 @@ def k_fold_train_and_test(G, k = 10, method = "cn", num_trials = 1000, parameter
 
 if __name__ == "__main__":
 	G = load_graph("lastfm")
+	print(len(G.nodes()))
+	print(len(G.edges()))
 
-	repeats = 5
-	total = 0
-	for i in range(repeats):
-		score = k_fold_train_and_test(G.copy(), method = "LHN1_e", num_trials = 100, parameter = 0.04)
-		print("Average AUC: {:.5f}".format(score))
-		total += score
-	print(total / repeats)
+	repeats = 10
+
+	for method in ["jaccard", "salton", "salton_e", "lhn1", "lhn1_e", "hdi", "hdi_e", "hpi", "hpi_e"]:
+		total = 0
+		print(method)
+		for i in range(repeats):
+			score = k_fold_train_and_test(G.copy(), method = method, num_trials = 150, parameter = 0.04)
+			#print("Average AUC: {:.5f}".format(score))
+			total += score
+		print("Average AUC: {:.4f}".format(total / repeats))
