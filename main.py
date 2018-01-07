@@ -210,6 +210,9 @@ def experimental_AUC_score(train_graph, test_edges, nodelist, lp_mat, num_trials
 				except FloatingPointError:
 					missing_edge_score = 0
 
+			elif index == "ra_e":
+				pass
+
 			else:
 				raise ParameterError("{} is not a valid index for extra_mat_AUC_score()".format(index))
 
@@ -227,7 +230,7 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 
 	mat_score_methods = ["cn", "lp"]
 	extra_mat_score_methods = ["jaccard", "lhn1", "salton", "sorensen", "hpi", "hdi"]
-	experimental_indices = ["hpi_e", "hdi_e", "salton_e", "lhn1_e"]#
+	experimental_indices = ["hpi_e", "hdi_e", "salton_e", "lhn1_e", "ra_e"]#
 
 	non_edges = n_random_non_edges(G, num_trials)
 	
@@ -260,7 +263,7 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 		nodelist = [n for n in train_graph.nodes()]
 		mat = nx.adjacency_matrix(train_graph, nodelist = nodelist)
 		cn_mat = mat * mat
-		return experimental_AUC_score(train_graph, test_edges, nodelist, cn_mat + (0.03 * (cn_mat * mat)), num_trials, non_edges, method)
+		return experimental_AUC_score(train_graph, test_edges, nodelist, cn_mat + (parameter * (cn_mat * mat)), num_trials, non_edges, method)
 	else:
 		raise KeyError("Invalid method {} passed to predict_edges()".format(method))
 
@@ -282,17 +285,17 @@ def k_fold_train_and_test(G, k = 10, method = "cn", num_trials = 1000, parameter
 	return AUC_total / k
 
 if __name__ == "__main__":
-	G = load_graph("lastfm")
+	G = load_graph("netscience")
 	print(len(G.nodes()))
 	print(len(G.edges()))
 
 	repeats = 10
 
-	for method in ["jaccard", "salton", "salton_e", "lhn1", "lhn1_e", "hdi", "hdi_e", "hpi", "hpi_e"]:
+	for method in ["aa"]:#["jaccard", "salton", "salton_e", "lhn1", "lhn1_e", "hdi", "hdi_e", "hpi", "hpi_e"]:
 		total = 0
 		print(method)
 		for i in range(repeats):
-			score = k_fold_train_and_test(G.copy(), method = method, num_trials = 150, parameter = 0.04)
+			score = k_fold_train_and_test(G.copy(), method = method, num_trials = 150, parameter = 0.02)
 			#print("Average AUC: {:.5f}".format(score))
 			total += score
 		print("Average AUC: {:.4f}".format(total / repeats))
