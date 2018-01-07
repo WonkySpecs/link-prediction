@@ -10,22 +10,24 @@ class ParameterError(Exception):
 def load_graph(graph_name):
 	datapath = os.path.join(os.pardir, "data")
 	gml_graph_dict = {  "netscience" : os.path.join("netscience", "netscience.gml"),
-						"karate" : "karate.gml"}
+						"karate" : "karate.gml",
+						"power"	 : "power.gml" }
+						
 	edgelist_graph_dict = { "condmat" 	: "CA-CondMat.txt",
 							"google"	: "web-Google.txt",
 							"facebook1"	: "facebook_combined.txt",
 							"lastfm"	: os.path.join("lastfm", "user_friends.dat")}
 
+	G = nx.Graph()
+
 	if graph_name in gml_graph_dict:
-		return nx.read_gml(os.path.join(datapath, gml_graph_dict[graph_name]), label = 'id')
+		G = nx.read_gml(os.path.join(datapath, gml_graph_dict[graph_name]), label = 'id')
 
 		#We use ids to override labels, might want to overwrite this behaviour at some point?
 		# 	G = nx.read_gml(os.path.join(datapath, gml_graph_dict[graph_name]))
 
-		return G
-
 	elif graph_name in edgelist_graph_dict:
-		return nx.read_edgelist(os.path.join(datapath, edgelist_graph_dict[graph_name]))
+		G = nx.read_edgelist(os.path.join(datapath, edgelist_graph_dict[graph_name]))
 
 	elif graph_name == "test":
 		#This is graph 'c' pictured in paper
@@ -49,10 +51,11 @@ def load_graph(graph_name):
 		G.add_edge(9, 3)
 		G.add_edge(9, 1)
 		G.add_edge(10, 2)
-		return G
-
 	else:
 		raise KeyError("Invalid graph_name \"{}\" passed to load_graph()".format(graph_name))
+
+	G.remove_nodes_from(nx.isolates(G))
+	return G
 
 def k_set_edge_split(G, k):
 	edgelist = list(G.edges())
