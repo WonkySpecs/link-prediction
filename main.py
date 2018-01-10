@@ -12,9 +12,8 @@ import numpy as np
 #find the scores of all edges.
 def mat_AUC_score(score_mat, test_edges, non_edges, nodelist):
 	total = 0
-	missing_edges = random.sample(test_edges, len(non_edges))
 	for i in range(len(non_edges)):
-		missing_edge = missing_edges[i]
+		missing_edge = test_edges[i]
 		non_edge = non_edges[i]
 
 		non_edge_score = score_mat[nodelist.index(non_edge[0]), nodelist.index(non_edge[1])]
@@ -28,12 +27,10 @@ def mat_AUC_score(score_mat, test_edges, non_edges, nodelist):
 	return total / float(len(non_edges))
 
 #These indices require more processing than just looking up matrix elements
-def extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, num_trials, non_edges, index):
+def extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, non_edges, index):
 	total = 0
 
-	for non_edge in non_edges:
-		missing_edge = random.sample(test_edges, 1)[0]
-
+	for non_edge, missing_edge in zip(non_edges, test_edges):
 		u_non = nodelist.index(non_edge[0])
 		v_non = nodelist.index(non_edge[1])
 
@@ -113,14 +110,13 @@ def extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, num_trials, n
 			total += 1
 		elif missing_edge_score == non_edge_score:
 			total += 0.5
-		test_edges.remove(missing_edge)
 
-	return total / float(num_trials)
+	return total / float(len(non_edges))
 
-def pa_AUC_score(train_graph, test_edges, num_trials, non_edges):
+def pa_AUC_score(train_graph, test_edges, non_edges):
 	total = 0
 
-	for non_edge in non_edges:
+	for non_edge, missing_edge in zip(non_edges, test_edges):
 		missing_edge = random.sample(test_edges, 1)[0]
 		non_edge_score = len(train_graph[non_edge[0]]) * len(train_graph[non_edge[1]])
 		missing_edge_score = len(train_graph[missing_edge[0]]) * len(train_graph[missing_edge[1]])
@@ -129,37 +125,46 @@ def pa_AUC_score(train_graph, test_edges, num_trials, non_edges):
 			total += 1
 		elif missing_edge_score == non_edge_score:
 			total += 0.5
-		test_edges.remove(missing_edge)
 
-	return total / float(num_trials)
+	return total / float(len(non_edges))
 
-def aa_ra_AUC_score(train_graph, test_edges, num_trials, non_edges, index):
+def aa_ra_AUC_score(train_graph, test_edges, non_edges, index):
 	total = 0
 
-	for non_edge in non_edges:
-		missing_edge = random.sample(test_edges, 1)[0]
-
+	for non_edge, missing_edge in zip(non_edges, test_edges):
 		if index == "aa":
-			non_edge_score = sum([1 / math.log(len(train_graph[n])) for n in nx.common_neighbors(train_graph, non_edge[0], non_edge[1])])
-			missing_edge_score = sum([1 / math.log(len(train_graph[n])) for n in nx.common_neighbors(train_graph, missing_edge[0], missing_edge[1])])
+			try:
+				non_edge_score = sum([1 / math.log(len(train_graph[n])) for n in nx.common_neighbors(train_graph, non_edge[0], non_edge[1])])
+			except ZeroDivisionError:
+				non_edge_score = 0
+
+			try:
+				missing_edge_score = sum([1 / math.log(len(train_graph[n])) for n in nx.common_neighbors(train_graph, missing_edge[0], missing_edge[1])])
+			except ZeroDivisionError:
+				missing_edge_score = 0
+			
 
 		elif index == "ra":
-			non_edge_score = sum([1 / len(train_graph[n]) for n in nx.common_neighbors(train_graph, non_edge[0], non_edge[1])])
-			missing_edge_score = sum([1 / len(train_graph[n]) for n in nx.common_neighbors(train_graph, missing_edge[0], missing_edge[1])])
+			try:
+				non_edge_score = sum([1 / len(train_graph[n]) for n in nx.common_neighbors(train_graph, non_edge[0], non_edge[1])])
+			except ZeroDivisionError:
+				non_edge_score = 0
+
+			try:
+				missing_edge_score = sum([1 / len(train_graph[n]) for n in nx.common_neighbors(train_graph, missing_edge[0], missing_edge[1])])
+			except ZeroDivisionError:
+				missing_edge_score = 0
 
 		if missing_edge_score > non_edge_score:
 			total += 1
 		elif missing_edge_score == non_edge_score:
 			total += 0.5
-		test_edges.remove(missing_edge)
 
-	return total / float(num_trials)
+	return total / float(len(non_edges))
 
-def experimental_AUC_score(train_graph, test_edges, nodelist, lp_mat, num_trials, non_edges, index):
+def experimental_AUC_score(train_graph, test_edges, nodelist, lp_mat, non_edges, index):
 	total = 0
-	for non_edge in non_edges:
-		missing_edge = random.sample(test_edges, 1)[0]
-
+	for non_edge, missing_edge in zip(non_edges, test_edges):
 		u_non = nodelist.index(non_edge[0])
 		v_non = nodelist.index(non_edge[1])
 
@@ -220,19 +225,16 @@ def experimental_AUC_score(train_graph, test_edges, nodelist, lp_mat, num_trials
 			total += 1
 		elif missing_edge_score == non_edge_score:
 			total += 0.5
-		test_edges.remove(missing_edge)
 
-	return total / float(num_trials)
+	return total / float(len(non_edges))
 
 def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = None):
-	if len(test_edges) < num_trials:
-		raise ParameterError("Number of test edges ({}) must at least equal the number of trials ({}) for predict_edges()".format(len(test_edges), num_trials))
-
 	mat_score_methods = ["cn", "lp"]
 	extra_mat_score_methods = ["jaccard", "lhn1", "salton", "sorensen", "hpi", "hdi"]
 	experimental_indices = ["hpi_e", "hdi_e", "salton_e", "lhn1_e", "ra_e"]#
 
 	non_edges = n_random_non_edges(G, num_trials)
+	selected_test_edges = random.choices(test_edges, k = len(non_edges))
 	
 	if method in mat_score_methods or method in extra_mat_score_methods:
 		nodelist = [n for n in train_graph.nodes()]
@@ -248,22 +250,22 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 				else:
 					raise ParameterError("Parameter, e,  must be 0 < e <= 1 for Local Path index")
 
-			return mat_AUC_score(score_mat, test_edges, non_edges, nodelist)
+			return mat_AUC_score(score_mat, selected_test_edges, non_edges, nodelist)
 
 		elif method in extra_mat_score_methods:
-			return extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, num_trials, non_edges, method)
+			return extra_mat_AUC_score(cn_mat, train_graph, selected_test_edges, nodelist, non_edges, method)
 
 	elif method == "pa":
-		return pa_AUC_score(train_graph, test_edges, num_trials, non_edges)
+		return pa_AUC_score(train_graph, selected_test_edges, non_edges)
 
 	elif method == "aa" or method == "ra":
-		return aa_ra_AUC_score(train_graph, test_edges, num_trials, non_edges, method)
+		return aa_ra_AUC_score(train_graph, selected_test_edges, non_edges, method)
 
 	elif method in experimental_indices:
 		nodelist = [n for n in train_graph.nodes()]
 		mat = nx.adjacency_matrix(train_graph, nodelist = nodelist)
 		cn_mat = mat * mat
-		return experimental_AUC_score(train_graph, test_edges, nodelist, cn_mat + (parameter * (cn_mat * mat)), num_trials, non_edges, method)
+		return experimental_AUC_score(train_graph, selected_test_edges, nodelist, cn_mat + (parameter * (cn_mat * mat)), non_edges, method)
 	else:
 		raise KeyError("Invalid method {} passed to predict_edges()".format(method))
 
@@ -285,17 +287,15 @@ def k_fold_train_and_test(G, k = 10, method = "cn", num_trials = 1000, parameter
 	return AUC_total / k
 
 if __name__ == "__main__":
-	G = load_graph("netscience")
-	print(len(G.nodes()))
-	print(len(G.edges()))
-
 	repeats = 10
-
-	for method in ["aa"]:#["jaccard", "salton", "salton_e", "lhn1", "lhn1_e", "hdi", "hdi_e", "hpi", "hpi_e"]:
-		total = 0
-		print(method)
-		for i in range(repeats):
-			score = k_fold_train_and_test(G.copy(), method = method, num_trials = 150, parameter = 0.02)
-			#print("Average AUC: {:.5f}".format(score))
-			total += score
-		print("Average AUC: {:.4f}".format(total / repeats))
+	for graph in ["netscience", "lastfm", "power", "condmat"]:
+		print(graph)
+		G = load_graph(graph)
+		for method in ["jaccard", "salton", "salton_e", "lhn1", "lhn1_e", "hdi", "hdi_e", "hpi", "hpi_e", "pa", "aa", "ra"]:
+			total = 0
+			print(method)
+			for i in range(repeats):
+				score = k_fold_train_and_test(G.copy(), method = method, num_trials = 200, parameter = 0.02)
+				#print("Average AUC: {:.5f}".format(score))
+				total += score
+			print("Average AUC: {:.4f}".format(total / repeats))
