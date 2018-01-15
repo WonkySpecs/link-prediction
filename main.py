@@ -39,72 +39,41 @@ def extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, non_edges, in
 
 		with np.errstate(all = "raise"):
 			if index == "jaccard":
-				try:
-					non_edge_score = cn_mat[u_non, v_non] / len(set(train_graph[non_edge[0]]) | set(train_graph[non_edge[1]]))
-				except FloatingPointError:
-					non_edge_score = 0
-
-				try:
-					missing_edge_score = cn_mat[u_miss, v_miss] / len(set(train_graph[missing_edge[0]]) | set(train_graph[missing_edge[1]]))
-				except FloatingPointError:
-					missing_edge_score = 0
+				non_edge_denom = len(set(train_graph[non_edge[0]]) | set(train_graph[non_edge[1]]))
+				missing_edge_denom = len(set(train_graph[missing_edge[0]]) | set(train_graph[missing_edge[1]]))
 
 			elif index == "lhn1":
-				try:
-					non_edge_score = cn_mat[u_non, v_non] / len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]]))
-				except FloatingPointError:
-					non_edge_score = 0
-
-				try:
-					missing_edge_score = cn_mat[u_miss, v_miss] / len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]]))
-				except FloatingPointError:
-					missing_edge_score = 0
+				non_edge_denom = len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]]))
+				missing_edge_denom = len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]]))
 
 			elif index == "salton":
-				try:
-					non_edge_score = cn_mat[u_non, v_non] / math.sqrt(len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]])))
-				except FloatingPointError:
-					non_edge_score = 0
-
-				try:
-					missing_edge_score = cn_mat[u_miss, v_miss] / math.sqrt(len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]])))
-				except FloatingPointError:
-					missing_edge_score = 0
+				non_edge_denom = math.sqrt(len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]])))
+				missing_edge_denom = math.sqrt(len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]])))
 
 			elif index == "sorensen":
-				try:
-					non_edge_score = 2 * cn_mat[u_non, v_non] / len(train_graph[non_edge[0]]) + len((train_graph[non_edge[1]]))
-				except FloatingPointError:
-					non_edge_score = 0
-
-				try:
-					missing_edge_score = 2 * cn_mat[u_miss, v_miss] / len(train_graph[missing_edge[0]]) + len((train_graph[missing_edge[1]]))
-				except FloatingPointError:
-					missing_edge_score = 0
-
+				non_edge_score = 0.5 * (len(train_graph[non_edge[0]]) + len((train_graph[non_edge[1]])))
+				missing_edge_score = 0.5 * (len(train_graph[missing_edge[0]]) + len((train_graph[missing_edge[1]])))
+				
 			elif index == "hpi":
-				try:
-					non_edge_score = cn_mat[u_non, v_non] / min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
-				except FloatingPointError:
-					non_edge_score = 0
-				try:
-					missing_edge_score = cn_mat[u_miss, v_miss] / min(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
-				except FloatingPointError:
-					missing_edge_score = 0
+				non_edge_denom = min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+				missing_edge_denom = min(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
 				
 			elif index == "hdi":
-				try:
-					non_edge_score = cn_mat[u_non, v_non] / max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
-				except FloatingPointError:
-					non_edge_score = 0
-
-				try:
-					missing_edge_score = cn_mat[u_miss, v_miss] / max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
-				except FloatingPointError:
-					missing_edge_score = 0
+				non_edge_denom = max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+				missing_edge_denom = max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
 
 			else:
 				raise ParameterError("{} is not a valid index for extra_mat_AUC_score()".format(index))
+
+			if non_edge_denom > 0:
+				non_edge_score = cn_mat[u_non, v_non] / non_edge_denom
+			else:
+				non_edge_score = 0
+
+			if missing_edge_denom > 0:
+				missing_edge_score = cn_mat[u_miss, v_miss] / missing_edge_denom
+			else:
+				missing_edge_score = 0
 
 		if missing_edge_score > non_edge_score:
 			total += 1
@@ -173,53 +142,36 @@ def experimental_AUC_score(train_graph, test_edges, nodelist, lp_mat, non_edges,
 		
 		with np.errstate(all = "raise"):
 			if index == "lhn1_e":
-				try:
-					non_edge_score = lp_mat[u_non, v_non] / len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]]))
-				except FloatingPointError:
-					non_edge_score = 0
-
-				try:
-					missing_edge_score = lp_mat[u_miss, v_miss] / len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]]))
-				except FloatingPointError:
-					missing_edge_score = 0
+				non_edge_denom = len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]]))
+				missing_edge_denom = len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]]))
 
 			elif index == "salton_e":
-				try:
-					non_edge_score = lp_mat[u_non, v_non] / math.sqrt(len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]])))
-				except FloatingPointError:
-					non_edge_score = 0
-
-				try:
-					missing_edge_score = lp_mat[u_miss, v_miss] / math.sqrt(len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]])))
-				except FloatingPointError:
-					missing_edge_score = 0
+				non_edge_denom = math.sqrt(len(train_graph[non_edge[0]]) * len((train_graph[non_edge[1]])))
+				missing_edge_denom = math.sqrt(len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]])))
 
 			elif index == "hpi_e":
-				try:
-					non_edge_score = lp_mat[u_non, v_non] / min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
-				except FloatingPointError:
-					non_edge_score = 0
-				try:
-					missing_edge_score = lp_mat[u_miss, v_miss] / min(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
-				except FloatingPointError:
-					missing_edge_score = 0
+				non_edge_denom = min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+				missing_edge_denom = min(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
 				
 			elif index == "hdi_e":
-				try:
-					non_edge_score = lp_mat[u_non, v_non] / max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
-				except FloatingPointError:
-					non_edge_score = 0
-
-				try:
-					missing_edge_score = lp_mat[u_miss, v_miss] / max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
-				except FloatingPointError:
-					missing_edge_score = 0
+				non_edge_denom = max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
+				missing_edge_denom = max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
 
 			elif index == "ra_e":
 				pass
 
 			else:
 				raise ParameterError("{} is not a valid index for extra_mat_AUC_score()".format(index))
+
+			if non_edge_denom > 0:
+				non_edge_score = lp_mat[u_non, v_non] / non_edge_denom
+			else:
+				non_edge_score = 0
+
+			if missing_edge_denom > 0:
+				missing_edge_score = lp_mat[u_miss, v_miss] / missing_edge_denom
+			else:
+				missing_edge_score = 0
 
 		if missing_edge_score > non_edge_score:
 			total += 1
@@ -288,7 +240,7 @@ def k_fold_train_and_test(G, k = 10, method = "cn", num_trials = 1000, parameter
 
 if __name__ == "__main__":
 	repeats = 10
-	for graph in ["netscience", "lastfm", "power", "condmat"]:
+	for graph in ["netscience"]:
 		print(graph)
 		G = load_graph(graph)
 		for method in ["jaccard", "salton", "salton_e", "lhn1", "lhn1_e", "hdi", "hdi_e", "hpi", "hpi_e", "pa", "aa", "ra"]:
