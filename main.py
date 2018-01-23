@@ -97,7 +97,7 @@ def pa_AUC_score(train_graph, test_edges, non_edges):
 
 	return total / float(len(non_edges))
 
-def aa_ra_AUC_score(train_graph, test_edges, non_edges, index):
+def aa_ra_AUC_score(train_graph, test_edges, non_edges, index, parameter = None):
 	total = 0
 
 	for non_edge, missing_edge in zip(non_edges, test_edges):
@@ -123,6 +123,63 @@ def aa_ra_AUC_score(train_graph, test_edges, non_edges, index):
 				missing_edge_score = sum([1 / len(train_graph[n]) for n in nx.common_neighbors(train_graph, missing_edge[0], missing_edge[1])])
 			except ZeroDivisionError:
 				missing_edge_score = 0
+
+		elif index == "ra_e":
+			non_edge_cn = nx.common_neighbors(train_graph, non_edge[0], non_edge[1])
+			path_3_nodes = set()
+
+			#Get all nodes that are a neighbour of exactly 1 end point
+			non_edge_other_neighbours_0 = set(G[non_edge[0]]) - set(non_edge_cn)
+			non_edge_other_neighbours_1 = set(G[non_edge[1]]) - set(non_edge_cn)
+			
+			for neighbour in non_edge_other_neighbours_0:
+				#If these nodes have neighbours that are neighbours of the other endpoint, they are on a path of length 3
+				if set(G[neighbour]) & (non_edge_other_neighbours_1 | set(non_edge_cn)):
+					path_3_nodes.add(neighbour)
+
+			for neighbour in non_edge_other_neighbours_1:
+				if set(G[neighbour]) & (non_edge_other_neighbours_0 | set(non_edge_cn)):
+					path_3_nodes.add(neighbour)
+
+			non_edge_score = 0
+			try:
+				non_edge_score = sum([1 / len(train_graph[n]) for n in non_edge_cn])
+			except ZeroDivisionError:
+				pass
+
+			try:
+				non_edge_score += parameter * sum([1 / len(train_graph[n]) for n in path_3_nodes])
+			except ZeroDivisionError:
+				pass
+
+			#Repeat for missing edge
+
+			missing_edge_cn = nx.common_neighbors(train_graph, missing_edge[0], missing_edge[1])
+			path_3_nodes = set()
+
+			#Get all nodes that are a neighbour of exactly 1 end point
+			missing_edge_other_neighbours_0 = set(G[missing_edge[0]]) - set(missing_edge_cn)
+			missing_edge_other_neighbours_1 = set(G[missing_edge[1]]) - set(missing_edge_cn)
+			
+			for neighbour in missing_edge_other_neighbours_0:
+				#If these nodes have neighbours that are neighbours of the other endpoint, they are on a path of length 3
+				if set(G[neighbour]) & (missing_edge_other_neighbours_1 | set(missing_edge_cn)):
+					path_3_nodes.add(neighbour)
+
+			for neighbour in missing_edge_other_neighbours_1:
+				if set(G[neighbour]) & (missing_edge_other_neighbours_0 | set(missing_edge_cn)):
+					path_3_nodes.add(neighbour)
+
+			missing_edge_score = 0
+			try:
+				missing_edge_score = sum([1 / len(train_graph[n]) for n in missing_edge_cn])
+			except ZeroDivisionError:
+				pass
+
+			try:
+				missing_edge_score += parameter * sum([1 / len(train_graph[n]) for n in path_3_nodes])
+			except ZeroDivisionError:
+				pass
 
 		if missing_edge_score > non_edge_score:
 			total += 1
@@ -156,9 +213,6 @@ def experimental_AUC_score(train_graph, test_edges, nodelist, lp_mat, non_edges,
 			elif index == "hdi_e":
 				non_edge_denom = max(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
 				missing_edge_denom = max(len(train_graph[missing_edge[0]]), len((train_graph[missing_edge[1]])))
-
-			elif index == "ra_e":
-				pass
 
 			else:
 				raise ParameterError("{} is not a valid index for extra_mat_AUC_score()".format(index))
@@ -215,8 +269,9 @@ def rw_AUC_score(train_graph, test_edges, non_edges, index):
 def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = None):
 	mat_score_methods = ["cn", "lp"]
 	extra_mat_score_methods = ["jaccard", "lhn1", "salton", "sorensen", "hpi", "hdi"]
-	experimental_indices = ["hpi_e", "hdi_e", "salton_e", "lhn1_e", "ra_e"]
+	sum_indices = ["aa", "ra", "ra_e"]
 	random_walker_indices = ["rw", "rwr"]
+	experimental_indices = ["hpi_e", "hdi_e", "salton_e", "lhn1_e", "ra_e"]
 
 	non_edges = n_random_non_edges(G, num_trials)
 	selected_test_edges = random.choices(test_edges, k = len(non_edges))
@@ -243,8 +298,8 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 	elif method == "pa":
 		return pa_AUC_score(train_graph, selected_test_edges, non_edges)
 
-	elif method == "aa" or method == "ra":
-		return aa_ra_AUC_score(train_graph, selected_test_edges, non_edges, method)
+	elif method in sum_indices:
+		return aa_ra_AUC_score(train_graph, selected_test_edges, non_edges, method, parameter)
 
 	elif method in random_walker_indices:
 		return rw_AUC_score(train_graph, selected_test_edges, non_edges, method)
@@ -275,18 +330,15 @@ def k_fold_train_and_test(G, k = 10, method = "cn", num_trials = 1000, parameter
 	return AUC_total / k
 
 if __name__ == "__main__":
-	G = load_graph("condmat")
-	exit()
-	score = k_fold_train_and_test(G.copy(), method = "rw", num_trials = 200, parameter = 0.02)
 	repeats = 10
-	for graph in ["netscience", "lastfm"]:
+	for graph in ["netscience", "lastfm", "condmat", "power"]:
 		print(graph)
 		G = load_graph(graph)
-		for method in ["jaccard", "salton", "salton_e", "lhn1", "lhn1_e", "hdi", "hdi_e", "hpi", "hpi_e", "pa", "aa", "ra"]:
+		for method in ["jaccard", "salton", "salton_e", "lhn1", "lhn1_e", "hdi", "hdi_e", "hpi", "hpi_e", "aa", "ra", "ra_e"]:
 			total = 0
 			print(method)
 			for i in range(repeats):
 				score = k_fold_train_and_test(G.copy(), method = method, num_trials = 200, parameter = 0.02)
-				#print("Average AUC: {:.5f}".format(score))
 				total += score
 			print("Average AUC: {:.4f}".format(total / repeats))
+		print("------------\n")
