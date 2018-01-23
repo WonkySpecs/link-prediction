@@ -180,10 +180,43 @@ def experimental_AUC_score(train_graph, test_edges, nodelist, lp_mat, non_edges,
 
 	return total / float(len(non_edges))
 
+def rw_AUC_score(train_graph, test_edges, non_edges, index):
+	total = 0
+	a_mat = nx.adjacency_matrix(train_graph)
+	row_sums = a_mat.sum(axis = 1)
+	#If a node has become an isolate during k-fold, row sum will be 0 which causes an division error
+	with np.errstate(invalid = "ignore"):
+		transition_matrix = a_mat / row_sums
+	#Division errors put nan into matrix, replace nans with 0 (no chance of transition)
+	transition_matrix = np.nan_to_num(transition_matrix)
+	transition_matrix = np.transpose(transition_matrix)
+	score_mat = []
+
+	for node in train_graph.nodes():
+		vec = np.zeros((transition_matrix.shape[0], 1))
+		vec[node] = 1
+		max_diff = 1
+
+		while max_diff > 0.002:
+			new_vec = np.dot(transition_matrix, vec)
+			max_diff = max(abs(new_vec - vec))[0,0]
+			vec = new_vec
+
+		#print(vec)
+		print("----------------------")
+
+	if index == "rw":
+		pass
+	elif index == "rwr":
+		pass
+	
+	return total / float(len(non_edges))
+
 def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = None):
 	mat_score_methods = ["cn", "lp"]
 	extra_mat_score_methods = ["jaccard", "lhn1", "salton", "sorensen", "hpi", "hdi"]
-	experimental_indices = ["hpi_e", "hdi_e", "salton_e", "lhn1_e", "ra_e"]#
+	experimental_indices = ["hpi_e", "hdi_e", "salton_e", "lhn1_e", "ra_e"]
+	random_walker_indices = ["rw", "rwr"]
 
 	non_edges = n_random_non_edges(G, num_trials)
 	selected_test_edges = random.choices(test_edges, k = len(non_edges))
@@ -213,6 +246,9 @@ def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = No
 	elif method == "aa" or method == "ra":
 		return aa_ra_AUC_score(train_graph, selected_test_edges, non_edges, method)
 
+	elif method in random_walker_indices:
+		return rw_AUC_score(train_graph, selected_test_edges, non_edges, method)
+
 	elif method in experimental_indices:
 		nodelist = [n for n in train_graph.nodes()]
 		mat = nx.adjacency_matrix(train_graph, nodelist = nodelist)
@@ -239,8 +275,11 @@ def k_fold_train_and_test(G, k = 10, method = "cn", num_trials = 1000, parameter
 	return AUC_total / k
 
 if __name__ == "__main__":
+	G = load_graph("condmat")
+	exit()
+	score = k_fold_train_and_test(G.copy(), method = "rw", num_trials = 200, parameter = 0.02)
 	repeats = 10
-	for graph in ["netscience"]:
+	for graph in ["netscience", "lastfm"]:
 		print(graph)
 		G = load_graph(graph)
 		for method in ["jaccard", "salton", "salton_e", "lhn1", "lhn1_e", "hdi", "hdi_e", "hpi", "hpi_e", "pa", "aa", "ra"]:
