@@ -124,6 +124,8 @@ def aa_ra_AUC_score(train_graph, test_edges, non_edges, index, parameter = None)
 			except ZeroDivisionError:
 				missing_edge_score = 0
 
+		#Resource Allocation extended
+		#Similarity score between 2 nodes is RA + a small contribution from nodes on length 3 paths between the endpoints
 		elif index == "ra_e":
 			non_edge_cn = nx.common_neighbors(train_graph, non_edge[0], non_edge[1])
 			path_3_nodes = set()
@@ -132,6 +134,7 @@ def aa_ra_AUC_score(train_graph, test_edges, non_edges, index, parameter = None)
 			non_edge_other_neighbours_0 = set(G[non_edge[0]]) - set(non_edge_cn)
 			non_edge_other_neighbours_1 = set(G[non_edge[1]]) - set(non_edge_cn)
 			
+			#Find all nodes on length 3 paths between the endpoints
 			for neighbour in non_edge_other_neighbours_0:
 				#If these nodes have neighbours that are neighbours of the other endpoint, they are on a path of length 3
 				if set(G[neighbour]) & (non_edge_other_neighbours_1 | set(non_edge_cn)):
@@ -180,6 +183,60 @@ def aa_ra_AUC_score(train_graph, test_edges, non_edges, index, parameter = None)
 				missing_edge_score += parameter * sum([1 / len(train_graph[n]) for n in path_3_nodes])
 			except ZeroDivisionError:
 				pass
+
+		#Very similar to ra_e but takes into account the number of paths each node is on
+		elif index == "ra_e2":
+			non_edge_cn = nx.common_neighbors(train_graph, non_edge[0], non_edge[1])
+
+			#Get all nodes that are a neighbour of exactly 1 end point
+			non_edge_other_neighbours_0 = set(G[non_edge[0]]) - set(non_edge_cn)
+			non_edge_other_neighbours_1 = set(G[non_edge[1]]) - set(non_edge_cn)
+			non_edge_score = 0
+			
+			try:
+				non_edge_score = sum([1 / len(train_graph[n]) for n in non_edge_cn])
+			except ZeroDivisionError:
+				pass
+
+			for neighbour in non_edge_other_neighbours_0:
+				#If these nodes have neighbours that are neighbours of the other endpoint, they are on a path of length 3
+
+				try:
+					non_edge_score += (parameter * len(set(G[neighbour]) & (non_edge_other_neighbours_1 | set(non_edge_cn)))) / len(train_graph[neighbour])
+				except ZeroDivisionError:
+					pass
+
+			for neighbour in non_edge_other_neighbours_1:
+				try:
+					non_edge_score += (parameter * len(set(G[neighbour]) & (non_edge_other_neighbours_0 | set(non_edge_cn)))) / len(train_graph[neighbour])
+				except ZeroDivisionError:
+					pass
+
+			#Repeat for missing edge
+			missing_edge_cn = nx.common_neighbors(train_graph, missing_edge[0], missing_edge[1])
+
+			#Get all nodes that are a neighbour of exactly 1 end point
+			missing_edge_other_neighbours_0 = set(G[missing_edge[0]]) - set(missing_edge_cn)
+			missing_edge_other_neighbours_1 = set(G[missing_edge[1]]) - set(missing_edge_cn)
+			missing_edge_score = 0
+			
+			try:
+				missing_edge_score = sum([1 / len(train_graph[n]) for n in missing_edge_cn])
+			except ZeroDivisionError:
+				pass
+
+			for neighbour in missing_edge_other_neighbours_0:
+				#If these nodes have neighbours that are neighbours of the other endpoint, they are on a path of length 3
+				try:
+					missing_edge_score += (parameter * len(set(G[neighbour]) & (missing_edge_other_neighbours_1 | set(missing_edge_cn)))) / len(train_graph[neighbour])
+				except ZeroDivisionError:
+					pass
+
+			for neighbour in missing_edge_other_neighbours_1:
+				try:
+					missing_edge_score += (parameter * len(set(G[neighbour]) & (missing_edge_other_neighbours_0 | set(missing_edge_cn)))) / len(train_graph[neighbour])
+				except ZeroDivisionError:
+					pass
 
 		if missing_edge_score > non_edge_score:
 			total += 1
@@ -269,9 +326,9 @@ def rw_AUC_score(train_graph, test_edges, non_edges, index):
 def predict_edges(G, train_graph, test_edges, method, num_trials, parameter = None):
 	mat_score_methods = ["cn", "lp"]
 	extra_mat_score_methods = ["jaccard", "lhn1", "salton", "sorensen", "hpi", "hdi"]
-	sum_indices = ["aa", "ra", "ra_e"]
+	sum_indices = ["aa", "ra", "ra_e", "ra_e2"]
 	random_walker_indices = ["rw", "rwr"]
-	experimental_indices = ["hpi_e", "hdi_e", "salton_e", "lhn1_e", "ra_e"]
+	experimental_indices = ["hpi_e", "hdi_e", "salton_e", "lhn1_e"]
 
 	non_edges = n_random_non_edges(G, num_trials)
 	selected_test_edges = random.choices(test_edges, k = len(non_edges))
@@ -334,11 +391,13 @@ if __name__ == "__main__":
 	for graph in ["netscience", "lastfm", "condmat", "power"]:
 		print(graph)
 		G = load_graph(graph)
-		for method in ["jaccard", "salton", "salton_e", "lhn1", "lhn1_e", "hdi", "hdi_e", "hpi", "hpi_e", "aa", "ra", "ra_e"]:
+		for method in ["ra", "ra_e", "ra_e2"]:
 			total = 0
 			print(method)
+			start = time.clock()
 			for i in range(repeats):
-				score = k_fold_train_and_test(G.copy(), method = method, num_trials = 200, parameter = 0.02)
+				score = k_fold_train_and_test(G.copy(), method = method, num_trials = 2000, parameter = 0.02)
 				total += score
 			print("Average AUC: {:.4f}".format(total / repeats))
+			print("Average time: {:.4f}".format((time.clock() - start) / repeats))
 		print("------------\n")
