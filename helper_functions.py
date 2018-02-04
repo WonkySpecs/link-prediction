@@ -11,12 +11,14 @@ def load_graph(graph_name):
 	datapath = os.path.join(os.pardir, "data")
 	gml_graph_dict = {  "netscience" : os.path.join("netscience", "netscience.gml"),
 						"karate" : "karate.gml",
-						"power"	 : "power.gml" }
+						"power"	 : "power.gml",
+						"books"	 : "polbooks.gml" }
 						
 	edgelist_graph_dict = { "condmat" 	: "CA-CondMat.txt",
 							"google"	: "web-Google.txt",
-							"facebook1"	: "facebook_combined.txt",
-							"lastfm"	: os.path.join("lastfm", "user_friends.dat")}
+							"facebook"	: "facebook_combined.txt",
+							"lastfm"	: os.path.join("lastfm", "user_friends.dat"),
+							"movies"	: "rec-movielens-user-movies-10m.edges"}
 
 	G = nx.Graph()
 
@@ -55,6 +57,16 @@ def load_graph(graph_name):
 		raise KeyError("Invalid graph_name \"{}\" passed to load_graph()".format(graph_name))
 
 	G.remove_nodes_from(nx.isolates(G))
+
+	#Remap graph nodes into range 0 - (n - 1)
+	new_old_map = {new_node : old_node for new_node, old_node in enumerate(G.nodes())}
+	old_new_map = {old_node : new_node for new_node, old_node in new_old_map.items()}
+	ordered_G = nx.Graph()
+
+	for new_node in range(G.number_of_nodes()):
+		ordered_G.add_node(new_node)
+		for old_neighbour in G[new_old_map[new_node]]:
+			ordered_G.add_edge(new_node, old_new_map[old_neighbour])
 	return G
 
 def k_set_edge_split(G, k):
