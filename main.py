@@ -5,7 +5,6 @@ import math
 
 from helper_functions import *
 import networkx as nx
-import scipy as sp
 import numpy as np
 
 #For indices whose scores can be determined with matrix calculations, it is viable to
@@ -51,8 +50,8 @@ def extra_mat_AUC_score(cn_mat, train_graph, test_edges, nodelist, non_edges, in
 				missing_edge_denom = math.sqrt(len(train_graph[missing_edge[0]]) * len((train_graph[missing_edge[1]])))
 
 			elif index == "sorensen":
-				non_edge_score = 0.5 * (len(train_graph[non_edge[0]]) + len((train_graph[non_edge[1]])))
-				missing_edge_score = 0.5 * (len(train_graph[missing_edge[0]]) + len((train_graph[missing_edge[1]])))
+				non_edge_denom = 0.5 * (len(train_graph[non_edge[0]]) + len((train_graph[non_edge[1]])))
+				missing_edge_denom = 0.5 * (len(train_graph[missing_edge[0]]) + len((train_graph[missing_edge[1]])))
 				
 			elif index == "hpi":
 				non_edge_denom = min(len(train_graph[non_edge[0]]), len((train_graph[non_edge[1]])))
@@ -386,18 +385,24 @@ def k_fold_train_and_test(G, k = 10, method = "cn", num_trials = 1000, parameter
 
 	return AUC_total / k
 
+all_indices = ["cn", "salton", "jaccard", "lhn1", "sorensen", "hpi", "hdi", "pa", "aa", "ra", "lp", "salton_e", "lhn1_e", "hpi_e", "hdi_e", "ra_e", "ra_e2"]
 if __name__ == "__main__":
 	repeats = 10
-	for graph in ["netscience", "lastfm", "condmat", "power"]:
-		print(graph)
-		G = load_graph(graph)
-		for method in ["ra", "ra_e", "ra_e2"]:
-			total = 0
-			print(method)
-			start = time.clock()
-			for i in range(repeats):
-				score = k_fold_train_and_test(G.copy(), method = method, num_trials = 2000, parameter = 0.02)
-				total += score
-			print("Average AUC: {:.4f}".format(total / repeats))
-			print("Average time: {:.4f}".format((time.clock() - start) / repeats))
-		print("------------\n")
+	with open("out", "w") as output_file:
+		for graph in ["movies"]:#["books", "netscience", "lastfm", "power", "condmat", "facebook"]:
+			output_file.write(graph + "\n")
+			print(graph)
+			G = load_graph(graph)
+			for method in all_indices:
+				total = 0
+				print(method)
+				output_file.write(method + "\n")
+				start = time.clock()
+				for i in range(repeats):
+					score = k_fold_train_and_test(G.copy(), method = method, num_trials = 1000, parameter = 0.02)
+					total += score
+				out = "Average AUC: {:.4f}\nAverage time: {:.4f}\n".format(total / repeats, (time.clock() - start) / repeats)
+				output_file.write(out)
+				print(out)
+			print("------------\n")
+			output_file.write("------------\n")
