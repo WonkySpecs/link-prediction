@@ -100,5 +100,8 @@ ENV/
 # mypy
 .mypy_cache/
 
-# Shortcut for anacondo prompt
+# Shortcut for anaconda prompt
 *.lnk
+
+#Output files
+*-out
