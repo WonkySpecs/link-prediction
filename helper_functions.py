@@ -58,15 +58,6 @@ def load_graph(graph_name):
 
 	G.remove_nodes_from(nx.isolates(G))
 
-	#Remap graph nodes into range 0 - (n - 1)
-	new_old_map = {new_node : old_node for new_node, old_node in enumerate(G.nodes())}
-	old_new_map = {old_node : new_node for new_node, old_node in new_old_map.items()}
-	ordered_G = nx.Graph()
-
-	for new_node in range(G.number_of_nodes()):
-		ordered_G.add_node(new_node)
-		for old_neighbour in G[new_old_map[new_node]]:
-			ordered_G.add_edge(new_node, old_new_map[old_neighbour])
 	return G
 
 def k_set_edge_split(G, k):
