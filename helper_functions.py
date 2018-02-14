@@ -3,6 +3,7 @@ import random
 import math
 import networkx as nx
 import time
+import re
 
 class ParameterError(Exception):
 	pass
@@ -18,7 +19,8 @@ def load_graph(graph_name):
 							"google"	: "web-Google.txt",
 							"facebook"	: "facebook_combined.txt",
 							"lastfm"	: os.path.join("lastfm", "user_friends.dat"),
-							"movies"	: "rec-movielens-user-movies-10m.edges"}
+							"movies"	: "rec-movielens-user-movies-10m.edges",
+							"yeast"		: "yeast"}
 
 	G = nx.Graph()
 
@@ -54,11 +56,33 @@ def load_graph(graph_name):
 		G.add_edge(9, 1)
 		G.add_edge(10, 2)
 	else:
-		raise KeyError("Invalid graph_name \"{}\" passed to load_graph()".format(graph_name))
+		pa_pattern = re.compile("[0-9]+-[0-9]+pa[0-9]+")
+		if pa_pattern.match(graph_name):
+			G = nx.read_edgelist(os.path.join(datapath, "random", "pa", graph_name))
+		else:
+			raise KeyError("Invalid graph_name \"{}\" passed to load_graph()".format(graph_name))
 
 	G.remove_nodes_from(nx.isolates(G))
 
 	return G
+
+#Each folder in /data/random/ contains a set of random graphs produced with the algorithm the folder is named after
+#load_random_graph_set returns a list of nx.Graphs loaded from the given folder/set/algorithm name
+#
+#Assumes files are named in the format n-ps[0-9]* where n is the number of nodes, p is some second parameter and s is set_name
+def load_random_graph_set(set_name, num_nodes = None):
+	random_graph_folder = os.path.join(os.pardir, "data", "random")
+	if set_name in os.listdir(random_graph_folder):
+		graphs = dict()
+		for graph_filename in os.listdir(os.path.join(random_graph_folder, set_name)):
+			if not num_nodes or graph_filename.split("-")[0] == (str(num_nodes)):
+				G = load_graph(graph_filename)
+				graphs[graph_filename] = G
+		return graphs
+
+	else:
+		print("Cannot find random graph set \"{}\"".format(set_name))
+		exit()
 
 def k_set_edge_split(G, k):
 	edgelist = list(G.edges())
