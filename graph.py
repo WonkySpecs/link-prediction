@@ -6,7 +6,7 @@ import numpy as np
 import networkx as nx
 from helper_functions import *
 
-source_folder = os.path.join(os.pardir, "results")
+source_folder = os.path.join(os.pardir, "results", "random", "sw", "1")
 
 indices = ["cn", "lhn1", "hpi", "hdi", "lhn1_e", "hpi_e", "hdi_e", "ra", "ra_e", "ra_e2", "pa"]
 
@@ -15,7 +15,7 @@ graph_dict = dict()
 graph_name_list = []
 
 results_file = None
-for f in source_folder:
+for f in os.listdir(source_folder):
 	if f.endswith(".csv"):
 		if results_file:
 			print("More than one csv file found in {}, sort that crap out".format(source_folder))
@@ -24,13 +24,12 @@ for f in source_folder:
 			results_file = os.path.join(source_folder, f)
 
 #Get results from file
-with open(results_file, newline = '') as csvfile:
+with open(results_file) as csvfile:
 	reader = csv.reader(csvfile, delimiter = ",")
 	for row in reader:
 		if index_i_dict:
 			graph_name = row[0]
 			graph_name_list.append(graph_name)
-			G = graphs[graph_name]
 			graph_dict[graph_name] = dict()
 
 			for index, i in index_i_dict.items():
@@ -44,7 +43,7 @@ for graph_name in graph_name_list:
 	max_deg = 0
 	max_deg_node = None
 
-	G = load_graph(graph_name, foler = source_folder)
+	G = load_graph(graph_name, datapath = source_folder)
 
 	for node in G.nodes():
 		n = len(G[node])

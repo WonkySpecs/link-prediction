@@ -24,13 +24,13 @@ def load_graph(graph_name, datapath = os.path.join(os.pardir, "data")):
 	G = nx.Graph()
 
 	if graph_name in gml_graph_dict:
-		G = nx.read_gml(os.path.join(datapath, gml_graph_dict[graph_name]), label = 'id')
+		G = nx.read_gml(os.path.join(os.pardir, "data", gml_graph_dict[graph_name]), label = 'id')
 
 		#We use ids to override labels, might want to overwrite this behaviour at some point?
 		# 	G = nx.read_gml(os.path.join(datapath, gml_graph_dict[graph_name]))
 
 	elif graph_name in edgelist_graph_dict:
-		G = nx.read_edgelist(os.path.join(datapath, edgelist_graph_dict[graph_name]))
+		G = nx.read_edgelist(os.path.join(os.pardir, "data", edgelist_graph_dict[graph_name]))
 
 	elif graph_name == "test":
 		#This is graph 'c' pictured in paper
