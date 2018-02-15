@@ -8,8 +8,7 @@ import re
 class ParameterError(Exception):
 	pass
 
-def load_graph(graph_name):
-	datapath = os.path.join(os.pardir, "data")
+def load_graph(graph_name, datapath = os.path.join(os.pardir, "data")):
 	gml_graph_dict = {  "netscience" : os.path.join("netscience", "netscience.gml"),
 						"karate" : "karate.gml",
 						"power"	 : "power.gml",
@@ -56,11 +55,10 @@ def load_graph(graph_name):
 		G.add_edge(9, 1)
 		G.add_edge(10, 2)
 	else:
-		pa_pattern = re.compile("[0-9]+-[0-9]+pa[0-9]+")
-		if pa_pattern.match(graph_name):
-			G = nx.read_edgelist(os.path.join(datapath, "random", "pa", graph_name))
+		if graph_name in os.listdir(datapath):
+			G = nx.read_edgelist(os.path.join(datapath, graph_name))
 		else:
-			raise KeyError("Invalid graph_name \"{}\" passed to load_graph()".format(graph_name))
+			print("Could not find graph {} in {}".format(graph_name, datapath))
 
 	G.remove_nodes_from(nx.isolates(G))
 
