@@ -6,9 +6,9 @@ import numpy as np
 import networkx as nx
 from helper_functions import *
 
-source_folder = os.path.join(os.pardir, "results", "random", "sw", "1")
+source_folder = os.path.join(os.pardir, "results", "random", "pa", "1")
 
-indices = ["cn", "lhn1", "hpi", "hdi", "lhn1_e", "hpi_e", "hdi_e", "ra", "ra_e", "ra_e2", "pa"]
+indices = ["lp", "cn", "lhn1_e", "lhn1", "hpi_e", "hpi", "hdi_e", "hdi", "ra_e", "ra", "pa", "ra_e2"]
 
 index_i_dict = None
 graph_dict = dict()
@@ -31,9 +31,10 @@ with open(results_file) as csvfile:
 			graph_name = row[0]
 			graph_name_list.append(graph_name)
 			graph_dict[graph_name] = dict()
+			graph_dict[graph_name]["AUC"] = dict()
 
 			for index, i in index_i_dict.items():
-				graph_dict[graph_name][index] = row[i]
+				graph_dict[graph_name]["AUC"][index] = row[i]
 		else:
 			index_i_dict = {index : row.index(index) for index in indices}
 
@@ -57,13 +58,45 @@ for graph_name in graph_name_list:
 	graph_dict[graph_name]["max_degree"] = max_deg
 	graph_dict[graph_name]["avg_clustering"] = nx.average_clustering(G)
 
+plot_vals = {i : dict() for i in indices}
+for index in indices:
+	for graph in graph_dict.values():
+		d = graph["avg_degree"]
+		v = float(graph["AUC"][index])
+
+		if d in plot_vals[index].keys():
+			plot_vals[index][d].append(v)
+		else:
+			plot_vals[index][d] = [v]
+
+list_avg = lambda l : sum(l) / len(l)
+
+for (local_index, extended_index) in zip(["lhn1", "hpi", "hdi"], ["lhn1_e", "hpi_e", "hdi_e"]):
+	plt.plot(list(plot_vals["cn"].keys()), [list_avg(l) for l in plot_vals["cn"].values()])
+	plt.plot(list(plot_vals["lp"].keys()), [list_avg(l) for l in plot_vals["lp"].values()])
+	plt.plot(list(plot_vals[local_index].keys()), [list_avg(l) for l in plot_vals[local_index].values()])
+	plt.plot(list(plot_vals[extended_index].keys()), [list_avg(l) for l in plot_vals[extended_index].values()])
+	plt.xlabel('Average degree')
+	plt.ylabel('AUC')
+	plt.savefig("test_" + local_index)
+	plt.clf()
+exit()
+
+
 #Display graphs in 2 row grid
 gs = gridspec.GridSpec(2, (len(indices) + 1) // 2)
 gs.update(wspace = 0.4)
-
+fig = plt.figure()
 for n, index in enumerate(indices):
 	ax = plt.subplot(gs[(n + 1) % 2, n // 2])
 	ax.scatter([graph_dict[graph_name]["avg_degree"] for graph_name in graph_name_list], [graph_dict[graph_name][index] for graph_name in graph_name_list])
 	ax.set_title(index)
-
+	if n == 1:
+		ax.set_xlabel("Average degree")
+		ax.set_ylabel("AUC")
+plt.subplots_adjust(hspace = 0.3, wspace = 0.15)
+fig.suptitle("Index performance on random graphs generated using a preferential attachment model", size = 12)
+figManager = plt.get_current_fig_manager()
+figManager.window.showMaximized()
+plt.savefig("ASDF")
 plt.show()
