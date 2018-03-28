@@ -72,14 +72,25 @@ for index in indices:
 list_avg = lambda l : sum(l) / len(l)
 
 for (local_index, extended_index) in zip(["lhn1", "hpi", "hdi"], ["lhn1_e", "hpi_e", "hdi_e"]):
-	plt.plot(list(plot_vals["cn"].keys()), [list_avg(l) for l in plot_vals["cn"].values()])
-	plt.plot(list(plot_vals["lp"].keys()), [list_avg(l) for l in plot_vals["lp"].values()])
-	plt.plot(list(plot_vals[local_index].keys()), [list_avg(l) for l in plot_vals[local_index].values()])
-	plt.plot(list(plot_vals[extended_index].keys()), [list_avg(l) for l in plot_vals[extended_index].values()])
+	plt.plot(list(plot_vals["cn"].keys()), [list_avg(l) for l in plot_vals["cn"].values()], linestyle = '--', marker = 'o', color = (0.55, 0.55, 0.55))
+	plt.plot(list(plot_vals["lp"].keys()), [list_avg(l) for l in plot_vals["lp"].values()], linestyle = '--', marker = 'x', color = (0.45, 0.45, 0.45))
+	plt.plot(list(plot_vals[local_index].keys()), [list_avg(l) for l in plot_vals[local_index].values()], linestyle = '-', marker = 'o', color = (0, 0.6, 0))
+	plt.plot(list(plot_vals[extended_index].keys()), [list_avg(l) for l in plot_vals[extended_index].values()], linestyle = '-', marker = 'x', color = (0, 0.8, 0))
 	plt.xlabel('Average degree')
 	plt.ylabel('AUC')
+	plt.title("Performance of {} and {}".format(local_index.upper(), extended_index.upper()))
 	plt.savefig("test_" + local_index)
 	plt.clf()
+
+plt.plot(list(plot_vals["cn"].keys()), [list_avg(l) for l in plot_vals["cn"].values()], linestyle = '--', marker = 'o', color = (0.55, 0.55, 0.55))
+plt.plot(list(plot_vals["lp"].keys()), [list_avg(l) for l in plot_vals["lp"].values()], linestyle = '--', marker = 'x', color = (0.45, 0.45, 0.45))
+plt.plot(list(plot_vals["ra"].keys()), [list_avg(l) for l in plot_vals["ra"].values()], linestyle = '-', marker = 'o', color = (0, 0.5, 0))
+plt.plot(list(plot_vals["ra_e"].keys()), [list_avg(l) for l in plot_vals["ra_e"].values()], linestyle = '-', marker = 'x', color = (0, 0.75, 0))
+plt.plot(list(plot_vals["ra_e2"].keys()), [list_avg(l) for l in plot_vals["ra_e2"].values()], linestyle = '-', marker = '^', color = (0, 0.95, 0))
+plt.xlabel('Average degree')
+plt.ylabel('AUC')
+plt.title("Performance of {}, {}, and {}".format("RA", "RA_E", "RA_E2"))
+plt.savefig("test_ra")
 exit()
 
 
